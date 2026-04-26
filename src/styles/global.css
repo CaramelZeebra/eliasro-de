@@ -8,11 +8,18 @@
   --display: "Computer Modern Serif", "Latin Modern Roman", "EB Garamond", "Goudy Old Style", Garamond, serif;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; height: 100%; background: #0a0805; color: var(--ink); font-family: var(--serif); overflow: hidden; }
+html, body {
+  margin: 0; padding: 0;
+  /* dvh accounts for mobile browser chrome; vh fallback for older browsers. */
+  height: 100vh;
+  height: 100dvh;
+  background: #0a0805; color: var(--ink); font-family: var(--serif);
+  overflow: hidden;
+}
 body { -webkit-font-smoothing: antialiased; }
 a { color: inherit; }
 
-.app-root { width: 100vw; height: 100vh; position: relative; overflow: hidden; background: #0a0805; }
+.app-root { width: 100vw; height: 100vh; height: 100dvh; position: relative; overflow: hidden; background: #0a0805; }
 .app-stage { position: absolute; inset: 0; perspective: 1800px; perspective-origin: 50% 45%; }
 
 .scene-camera {
@@ -633,6 +640,7 @@ a { color: inherit; }
   position: absolute;
   inset: 6% 7% 11% 9%;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding-right: 1em;          /* breathing room for the scrollbar */
   scrollbar-gutter: stable;
@@ -926,6 +934,58 @@ a { color: inherit; }
 .toc-num { font-family: var(--mono); font-size: 0.78em; opacity: 0.7; }
 .doc-return { position: absolute; top: 1.2em; right: 1.5em; background: transparent; border: 0.5px solid color-mix(in oklab, var(--ink) 30%, var(--paper)); color: color-mix(in oklab, var(--ink) 70%, var(--paper)); font-family: var(--display); font-style: italic; font-size: 0.85em; padding: 0.5em 0.9em; border-radius: 999px; cursor: pointer; transition: all 0.15s; }
 .doc-return:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* === Side nav buttons (always present, primary affordance on touch) === */
+.doc-side-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--paper) 70%, transparent);
+  border: 0.5px solid color-mix(in oklab, var(--ink) 25%, var(--paper));
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 1.4em;
+  cursor: pointer;
+  z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.doc-side-prev { left: 0.6em; }
+.doc-side-next { right: 0.6em; }
+.doc-side-btn:disabled { opacity: 0.2; cursor: default; }
+.doc-side-btn:not(:disabled):hover {
+  background: color-mix(in oklab, var(--paper) 90%, var(--ink));
+  border-color: var(--ink);
+}
+
+/* === Mobile (small viewports) === */
+@media (max-width: 720px) {
+  /* Compact stage: minimal margin so the page fills the screen */
+  .doc-stage { margin: 2.5% 3% 1%; }
+
+  /* Inline page-flip animations need less Z-room on mobile to stay on-screen */
+  .latex-page-full { font-size: clamp(11px, 3.6vw, 15px); }
+  .latex-scroll { inset: 5% 5% 9% 7%; padding-right: 0.6em; }
+
+  /* Doc nav: drop labels, just numbers; tighter padding */
+  .doc-nav { padding: 0.5em 0.6em 0.9em; gap: 0.3em; }
+  .doc-nav-arrow { width: 2em; height: 2em; font-size: 1em; }
+  .doc-toc { gap: 0.15em; }
+  .doc-toc-item { padding: 0.45em 0.55em; font-size: 0.9em; min-width: 2em; justify-content: center; }
+  .doc-toc-item .toc-label { display: none; }
+  .doc-toc-item .toc-num { font-size: 0.95em; }
+
+  /* Side nav: slightly larger for thumb reach */
+  .doc-side-btn { width: 40px; height: 40px; font-size: 1.2em; }
+  .doc-side-prev { left: 0.4em; }
+  .doc-side-next { right: 0.4em; }
+}
 
 .doc-layout-spread .doc-stage { margin: 3% 4% 1%; display: grid; grid-template-columns: 1fr 1fr; background: transparent; box-shadow: none; }
 .doc-layout-spread .doc-page { position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.2); background: var(--paper); }

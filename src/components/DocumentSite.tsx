@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { site } from '../content/site';
 
 type DocStyle = 'latex' | 'manuscript' | 'letter';
@@ -88,8 +88,46 @@ export default function DocumentSite({
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // Touch swipe: horizontal, > 60px, mostly horizontal, < 800ms.
+  const touchRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const start = touchRef.current;
+    touchRef.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const dt = Date.now() - start.t;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 800) {
+      if (dx < 0) next();
+      else prev();
+    }
+  };
+
   return (
-    <div className={`doc-site doc-style-${docStyle} doc-layout-${layout}`}>
+    <div
+      className={`doc-site doc-style-${docStyle} doc-layout-${layout}`}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <button
+        className="doc-side-btn doc-side-prev"
+        onClick={prev}
+        disabled={!flipping && current === 0}
+        aria-label="Previous page"
+        type="button"
+      >&larr;</button>
+      <button
+        className="doc-side-btn doc-side-next"
+        onClick={next}
+        disabled={!flipping && current === PAGES.length - 1}
+        aria-label="Next page"
+        type="button"
+      >&rarr;</button>
       <div className="doc-stage">
         {/* The under page only exists during a flip — it's the destination
             being revealed under the flap. Rendering it permanently created

@@ -32,8 +32,16 @@ const easings: Record<string, (t: number) => number> = {
 
 type Stage = 'library' | 'zooming' | 'document';
 
+// The library scene is composition-tuned for ≥900px (per the design's own
+// README). On phones it clips; the paper-hover trigger also doesn't translate
+// well to touch. Skip straight to the document on narrow viewports.
+const initialStage = (): Stage =>
+  typeof window !== 'undefined' && window.innerWidth < 900
+    ? 'document'
+    : 'library';
+
 export default function App() {
-  const [stage, setStage] = useState<Stage>('library');
+  const [stage, setStage] = useState<Stage>(initialStage);
   const [progress, setProgress] = useState(0);
   const stageRef = useRef<HTMLDivElement | null>(null);
 

@@ -31,7 +31,7 @@ export const site = {
   about: {
     intro: [
       'I am a student in my penultimate year of studying mathematics, with a minor in philosophy, at Trinity College Dublin. My primary interests are abstract algebra, analysis and game theory. I keep, as a hobby, an eye on the computer science scene and enjoy playing around with scripting, designing, and maintaining useless projects.',
-      'Anything I do I insist on doing correctly, and so everything I engage with that sees the light of day is properly typeset, organized, and has received my stamp of approval. I will however, never write a second draft. My thoughts are received in their most natural state.',
+      'Anything I do I insist on doing correctly, and so everything I engage with that sees the light of day is properly typeset, organised, and has received my stamp of approval. I will, however, never write a second draft. My thoughts are received in their most natural state.',
     ],
     inhabitations: {
       num: '1.1',
@@ -120,7 +120,7 @@ export const site = {
   // ────────────────────────── §6 studies ──────────────────────────────
   studies: {
     intro:
-      'An ordered record of subjects studied at Trinity College Dublin and, prior, in secondary school. The lists are partial; modules taken on whim or for credit may have escaped this register.',
+      'An ordered record of subjects studied at Trinity College Dublin and, prior, in secondary school. These lists are partial; modules which left the author not feeling particularly moved and/or enlightened have been omitted.',
     blocks: [
       {
         num: '6.1',

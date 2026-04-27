@@ -21,13 +21,19 @@ e.g. `/blog/<slug>/sunset.jpg`.
 title: Some title in plain text
 date: 2026-04-27           # YYYY-MM-DD
 summary: Optional one-line italic summary above the body.
-gallery:                    # Optional picture-bundle, rendered as a grid
-  - /blog/<slug>/photo-1.jpg
-  - /blog/<slug>/photo-2.jpg
 ---
 ```
 
-`summary` and `gallery` are both optional. Drop the keys entirely if unused.
+`summary` is optional. There is no need to list images: any file you drop
+into `public/blog/<slug>/` is auto-included in the gallery (alphabetical
+order). If you want to curate the order or hide some files, you can override
+explicitly:
+
+```yaml
+gallery:
+  - /blog/<slug>/cover.jpg
+  - /blog/<slug>/detail.jpg
+```
 
 ## Body
 

@@ -2,7 +2,23 @@
 import App from '../components/App';
 import { getCollection } from 'astro:content';
 import { marked } from 'marked';
+import fs from 'node:fs';
+import path from 'node:path';
 import '../styles/global.css';
+
+// Auto-discover any images dropped into public/blog/<slug>/ — alphabetical.
+// Used as the default gallery when frontmatter doesn't specify one.
+const autoGallery = (slug: string): string[] => {
+  const dir = path.join(process.cwd(), 'public', 'blog', slug);
+  try {
+    return fs.readdirSync(dir)
+      .filter((f) => /\.(jpe?g|png|webp|gif|avif)$/i.test(f))
+      .sort()
+      .map((f) => `/blog/${slug}/${f}`);
+  } catch {
+    return [];
+  }
+};
 
 // Build-time: read all blog posts, render their markdown bodies to HTML,
 // pass to the React app as a prop. Sorted newest first.
@@ -10,14 +26,18 @@ const entries = await getCollection('blog');
 const posts = await Promise.all(
   entries
     .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
-    .map(async (p) => ({
-      slug: p.id,
-      title: p.data.title,
-      date: p.data.date.toISOString().slice(0, 10),
-      summary: p.data.summary ?? null,
-      gallery: p.data.gallery ?? null,
-      bodyHtml: await marked.parse(p.body ?? ''),
-    })),
+    .map(async (p) => {
+      const auto = autoGallery(p.id);
+      const gallery = p.data.gallery ?? (auto.length > 0 ? auto : null);
+      return {
+        slug: p.id,
+        title: p.data.title,
+        date: p.data.date.toISOString().slice(0, 10),
+        summary: p.data.summary ?? null,
+        gallery,
+        bodyHtml: await marked.parse(p.body ?? ''),
+      };
+    }),
 );
 ---
 

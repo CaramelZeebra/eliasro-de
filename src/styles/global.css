@@ -859,6 +859,286 @@ a { color: inherit; }
 }
 .blog-gallery a:hover img { transform: scale(1.02); }
 
+/* === Account widget (joke "login" system) === */
+.account-btn {
+  position: fixed;
+  top: 1.2em;
+  right: 1.5em;
+  z-index: 30;
+  background: color-mix(in oklab, var(--paper) 85%, transparent);
+  border: 0.5px solid color-mix(in oklab, var(--ink) 30%, var(--paper));
+  color: color-mix(in oklab, var(--ink) 70%, var(--paper));
+  border-radius: 999px;
+  width: 2.4em;
+  height: 2.4em;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  font-family: var(--display);
+}
+.account-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.account-btn.is-signed-in {
+  width: auto;
+  padding: 0.45em 0.9em;
+  border-radius: 999px;
+  color: var(--ink);
+  font-style: italic;
+  font-size: 0.85em;
+}
+.account-name {
+  display: inline-block;
+  max-width: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu {
+  position: fixed;
+  top: 4.2em;
+  right: 1.5em;
+  z-index: 40;
+  background: var(--paper);
+  border: 0.5px solid color-mix(in oklab, var(--ink) 35%, var(--paper));
+  border-radius: 4px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  padding: 0.7em 0.9em;
+  font-family: var(--serif);
+  font-size: 0.92em;
+  color: var(--ink);
+  min-width: 12em;
+}
+.account-menu-head {
+  padding-bottom: 0.55em;
+  border-bottom: 0.5px solid color-mix(in oklab, var(--ink) 20%, var(--paper));
+  margin-bottom: 0.55em;
+  font-style: italic;
+  color: color-mix(in oklab, var(--ink) 80%, var(--paper));
+}
+.account-menu-points {
+  padding: 0.15em 0 0.55em;
+  border-bottom: 0.5px solid color-mix(in oklab, var(--ink) 20%, var(--paper));
+  margin-bottom: 0.55em;
+  font-size: 0.92em;
+  color: var(--ink);
+}
+.account-menu-points-note {
+  font-style: italic;
+  color: color-mix(in oklab, var(--ink) 55%, var(--paper));
+  font-size: 0.86em;
+}
+.account-menu-action {
+  background: transparent;
+  border: 0;
+  padding: 0.25em 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-style: italic;
+}
+.account-menu-action:hover { color: var(--accent); }
+
+.account-prompt-body {
+  margin: 0 0 0.6em;
+  line-height: 1.5;
+  font-size: 0.95em;
+}
+
+/* Modal === */
+.account-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(10, 8, 5, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5em;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: account-fade-in 0.2s ease-out both;
+}
+@keyframes account-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.account-modal {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 3em);
+  max-height: calc(100dvh - 3em);
+  border-radius: 4px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45), 0 8px 18px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: account-slide-up 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes account-slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.account-modal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 1em 1.2em 0.8em;
+  border-bottom: 0.5px solid color-mix(in oklab, var(--ink) 25%, var(--paper));
+}
+.account-modal-title {
+  font-family: var(--display);
+  font-size: 1.25em;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.005em;
+}
+.account-modal-close {
+  background: transparent;
+  border: 0;
+  padding: 0.1em 0.4em;
+  font-family: var(--display);
+  font-size: 1.4em;
+  line-height: 1;
+  color: color-mix(in oklab, var(--ink) 50%, var(--paper));
+  cursor: pointer;
+}
+.account-modal-close:hover { color: var(--ink); }
+
+.account-form {
+  padding: 1em 1.2em 1.2em;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85em;
+}
+.account-form-long { gap: 0.7em; }
+
+.account-field { display: flex; flex-direction: column; gap: 0.25em; }
+.account-field-label {
+  font-family: var(--display);
+  font-size: 0.78em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--ink) 65%, var(--paper));
+}
+.account-input {
+  font-family: var(--serif);
+  font-size: 0.95em;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--paper) 92%, var(--ink));
+  border: 0.5px solid color-mix(in oklab, var(--ink) 25%, var(--paper));
+  border-radius: 2px;
+  padding: 0.5em 0.65em;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.account-input:focus {
+  border-color: var(--ink);
+  background: color-mix(in oklab, var(--paper) 99%, var(--ink));
+}
+textarea.account-input {
+  font-family: var(--serif);
+  resize: vertical;
+  min-height: 3.2em;
+}
+select.account-input { cursor: pointer; }
+
+.account-check {
+  font-size: 0.82em;
+  font-style: italic;
+  margin-top: 0.15em;
+}
+.account-check.is-ok  { color: color-mix(in oklab, var(--ink) 65%, var(--paper)); }
+.account-check.is-bad { color: var(--accent); }
+
+.account-check-list {
+  list-style: none;
+  padding: 0.4em 0 0;
+  margin: 0;
+  font-size: 0.82em;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15em 0.8em;
+}
+.account-check-list li {
+  color: color-mix(in oklab, var(--ink) 50%, var(--paper));
+  font-style: italic;
+}
+.account-check-list li.is-ok  { color: color-mix(in oklab, var(--ink) 75%, var(--paper)); }
+.account-check-list li.is-bad { color: var(--accent); }
+.account-check-mark { display: inline-block; width: 1.2em; }
+
+.account-error {
+  background: color-mix(in oklab, var(--accent) 18%, var(--paper));
+  border-left: 2px solid var(--accent);
+  padding: 0.4em 0.7em;
+  font-size: 0.88em;
+  font-style: italic;
+  color: var(--accent);
+  border-radius: 1px;
+}
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+  padding-top: 0.4em;
+}
+.account-submit {
+  background: var(--ink);
+  color: var(--paper);
+  border: 0;
+  font-family: var(--display);
+  font-size: 0.95em;
+  padding: 0.55em 1.2em;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.account-submit:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--ink) 80%, var(--accent));
+}
+.account-submit:disabled { opacity: 0.5; cursor: default; }
+
+.account-link {
+  background: transparent;
+  border: 0;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 0.88em;
+  color: color-mix(in oklab, var(--ink) 65%, var(--paper));
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--ink) 35%, var(--paper));
+  text-underline-offset: 2px;
+  padding: 0.2em 0;
+}
+.account-link:hover { color: var(--accent); text-decoration-color: var(--accent); }
+
+@media (max-width: 720px) {
+  .account-modal-backdrop { padding: 0.6em; align-items: flex-start; }
+  .account-modal { max-height: calc(100dvh - 1.2em); }
+  .account-check-list { grid-template-columns: 1fr; }
+  .account-btn { top: 0.7em; right: 0.8em; }
+  .account-menu { top: 3.5em; right: 0.8em; }
+  .doc-return { top: 0.7em; left: 0.8em; }
+}
+
 /* === "Biscuits" notice === */
 .biscuit-notice {
   position: fixed;
@@ -1163,7 +1443,7 @@ a { color: inherit; }
 .doc-toc-item:hover { color: var(--ink); }
 .doc-toc-item.is-current { color: var(--accent); border-bottom-color: var(--accent); }
 .toc-num { font-family: var(--mono); font-size: 0.78em; opacity: 0.7; }
-.doc-return { position: absolute; top: 1.2em; right: 1.5em; background: transparent; border: 0.5px solid color-mix(in oklab, var(--ink) 30%, var(--paper)); color: color-mix(in oklab, var(--ink) 70%, var(--paper)); font-family: var(--display); font-style: italic; font-size: 0.85em; padding: 0.5em 0.9em; border-radius: 999px; cursor: pointer; transition: all 0.15s; }
+.doc-return { position: absolute; top: 1.2em; left: 1.5em; background: transparent; border: 0.5px solid color-mix(in oklab, var(--ink) 30%, var(--paper)); color: color-mix(in oklab, var(--ink) 70%, var(--paper)); font-family: var(--display); font-style: italic; font-size: 0.85em; padding: 0.5em 0.9em; border-radius: 999px; cursor: pointer; transition: all 0.15s; }
 .doc-return:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
 /* === Side nav buttons (always present, primary affordance on touch) === */

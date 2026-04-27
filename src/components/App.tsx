@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import LibraryScene from './LibraryScene';
 import DocumentSite from './DocumentSite';
+import AccountWidget from './AccountWidget';
 
 // Canonical configuration. The handoff prototype exposed these as a Tweaks
 // panel; in production we pin them and let the user re-enable tweaks later
@@ -192,6 +193,7 @@ export default function App({ posts = [] }: AppProps) {
               onReturn={returnToLibrary}
               posts={posts}
             />
+            <AccountWidget />
             <BiscuitNotice />
           </div>
         )}

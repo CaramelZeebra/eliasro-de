@@ -32,6 +32,15 @@ const easings: Record<string, (t: number) => number> = {
 
 type Stage = 'library' | 'zooming' | 'document';
 
+export interface BlogPost {
+  slug: string;
+  title: string;
+  date: string;
+  summary: string | null;
+  gallery: string[] | null;
+  bodyHtml: string;
+}
+
 // The library scene is composition-tuned for ≥900px (per the design's own
 // README). On phones it clips; the paper-hover trigger also doesn't translate
 // well to touch. Skip straight to the document on narrow viewports.
@@ -40,7 +49,11 @@ const initialStage = (): Stage =>
     ? 'document'
     : 'library';
 
-export default function App() {
+interface AppProps {
+  posts?: BlogPost[];
+}
+
+export default function App({ posts = [] }: AppProps) {
   const [stage, setStage] = useState<Stage>(initialStage);
   const [progress, setProgress] = useState(0);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -111,6 +124,7 @@ export default function App() {
               docStyle={CONFIG.docStyle}
               layout={CONFIG.layout}
               onReturn={returnToLibrary}
+              posts={posts}
             />
           </div>
         )}

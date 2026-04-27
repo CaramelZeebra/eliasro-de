@@ -1,6 +1,24 @@
 ---
 import App from '../components/App';
+import { getCollection } from 'astro:content';
+import { marked } from 'marked';
 import '../styles/global.css';
+
+// Build-time: read all blog posts, render their markdown bodies to HTML,
+// pass to the React app as a prop. Sorted newest first.
+const entries = await getCollection('blog');
+const posts = await Promise.all(
+  entries
+    .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
+    .map(async (p) => ({
+      slug: p.id,
+      title: p.data.title,
+      date: p.data.date.toISOString().slice(0, 10),
+      summary: p.data.summary ?? null,
+      gallery: p.data.gallery ?? null,
+      bodyHtml: await marked.parse(p.body ?? ''),
+    })),
+);
 ---
 
 <!doctype html>
@@ -44,6 +62,6 @@ import '../styles/global.css';
     <title>Elias Rode</title>
   </head>
   <body>
-    <App client:load />
+    <App client:load posts={posts} />
   </body>
 </html>

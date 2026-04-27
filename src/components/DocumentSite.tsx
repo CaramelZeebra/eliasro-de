@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { site } from '../content/site';
+import type { BlogPost } from './App';
 
 type DocStyle = 'latex' | 'manuscript' | 'letter';
 type Layout = 'single' | 'spread' | 'scroll';
@@ -12,7 +13,13 @@ interface DocumentSiteProps {
   docStyle?: DocStyle;
   layout?: Layout;
   onReturn?: () => void;
+  posts?: BlogPost[];
 }
+
+// Context so deeply-nested page renderers can read posts without
+// prop-drilling through PageContents.
+const PostsContext = createContext<BlogPost[]>([]);
+const usePosts = () => useContext(PostsContext);
 
 // Inline HTML helper — content fields in site.ts are HTML strings.
 const Html = ({ as: Tag = 'span', html, ...rest }: { as?: keyof JSX.IntrinsicElements; html: string } & Record<string, unknown>) => (
@@ -24,6 +31,7 @@ export default function DocumentSite({
   docStyle = 'latex',
   layout = 'single',
   onReturn,
+  posts = [],
 }: DocumentSiteProps) {
   const [current, setCurrent] = useState(0);
   const [flipping, setFlipping] = useState<FlipDir>(null);
@@ -109,6 +117,7 @@ export default function DocumentSite({
   };
 
   return (
+    <PostsContext.Provider value={posts}>
     <div
       className={`doc-site doc-style-${docStyle} doc-layout-${layout}`}
       onTouchStart={onTouchStart}
@@ -201,6 +210,7 @@ export default function DocumentSite({
         </button>
       )}
     </div>
+    </PostsContext.Provider>
   );
 }
 
@@ -222,6 +232,8 @@ function PageContents({
         {page.id === 'now' && <PageNow />}
         {page.id === 'studies' && <PageStudies />}
         {page.id === 'cv' && <PageCV />}
+        {page.id === 'blog' && <PageBlog />}
+        {page.id === 'links' && <PageLinks />}
         {page.id === 'contact' && <PageContact />}
       </div>
       <div className="latex-foot">
@@ -459,6 +471,77 @@ function PageCV() {
       {cv.skills.rows.map((r) =>
         renderRow(r.when, <Html as="span" className="muted" html={r.value} />),
       )}
+
+      <Section num={cv.languages.num} title={cv.languages.title} />
+      {cv.languages.rows.map((r) =>
+        renderRow(r.when, <Html as="span" className="muted" html={r.value} />),
+      )}
+    </>
+  );
+}
+
+function PageBlog() {
+  const posts = usePosts();
+  return (
+    <>
+      <Section num="8" title="Blog" />
+      {posts.length === 0 ? (
+        <div className="latex-body">
+          <i>No entries yet.</i> New posts live in <code>src/content/blog/</code>;
+          run <code>new-blog-post</code> from the launcher to start one.
+        </div>
+      ) : (
+        posts.map((p) => (
+          <article key={p.slug} className="blog-post">
+            <header className="blog-post-head">
+              <h3 className="blog-post-title">{p.title}</h3>
+              <time className="blog-post-date">{p.date}</time>
+            </header>
+            {p.summary && (
+              <p className="blog-post-summary"><i>{p.summary}</i></p>
+            )}
+            <div
+              className="blog-post-body"
+              dangerouslySetInnerHTML={{ __html: p.bodyHtml }}
+            />
+            {p.gallery && p.gallery.length > 0 && (
+              <div className="blog-gallery">
+                {p.gallery.map((src) => (
+                  <a key={src} href={src} target="_blank" rel="noopener">
+                    <img src={src} alt="" loading="lazy" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </article>
+        ))
+      )}
+    </>
+  );
+}
+
+function PageLinks() {
+  const { links } = site;
+  return (
+    <>
+      <Section num="9" title="Links" />
+      <Html as="div" className="latex-body" html={links.intro} />
+      {links.items.length === 0 ? (
+        <div className="latex-body"><i>No entries yet.</i></div>
+      ) : (
+        <ul className="links-list">
+          {links.items.map((l) => (
+            <li key={l.url}>
+              <a className="latex-link" href={l.url} target="_blank" rel="noopener">
+                {l.title}
+              </a>
+              {l.description && (
+                <span className="links-desc"> &mdash; {l.description}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </>
   );
 }
@@ -467,7 +550,7 @@ function PageContact() {
   const { contact } = site;
   return (
     <>
-      <Section num="8" title="Correspondence" />
+      <Section num="10" title="Correspondence" />
       <div className="latex-body">{contact.intro}</div>
 
       <div className="latex-contact-grid">

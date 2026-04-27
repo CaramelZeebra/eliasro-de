@@ -16,15 +16,17 @@ export const site = {
 
   // ────────────────────────── pages (TOC + nav) ───────────────────────
   pages: [
-    { id: 'title',   num: 'i', label: 'Title' },
-    { id: 'about',   num: '1', label: 'About' },
-    { id: 'works',   num: '2', label: 'Works' },
-    { id: 'writing', num: '3', label: 'Writing' },
-    { id: 'reading', num: '4', label: 'Reading' },
-    { id: 'now',     num: '5', label: 'Now' },
-    { id: 'studies', num: '6', label: 'Studies' },
-    { id: 'cv',      num: '7', label: 'Curriculum' },
-    { id: 'contact', num: '8', label: 'Contact' },
+    { id: 'title',   num: 'i',  label: 'Title' },
+    { id: 'about',   num: '1',  label: 'About' },
+    { id: 'works',   num: '2',  label: 'Works' },
+    { id: 'writing', num: '3',  label: 'Writing' },
+    { id: 'reading', num: '4',  label: 'Reading' },
+    { id: 'now',     num: '5',  label: 'Now' },
+    { id: 'studies', num: '6',  label: 'Studies' },
+    { id: 'cv',      num: '7',  label: 'Curriculum' },
+    { id: 'blog',    num: '8',  label: 'Blog' },
+    { id: 'links',   num: '9',  label: 'Links' },
+    { id: 'contact', num: '10', label: 'Contact' },
   ] as const,
 
   // ────────────────────────── §1 about ────────────────────────────────
@@ -233,9 +235,26 @@ export const site = {
         { when: 'Other',       value: 'Documentation · light AI work · presentation &amp; templating' },
       ],
     },
+    languages: {
+      num: '7.4',
+      title: 'Languages',
+      rows: [
+        { when: 'English',   value: 'Fluent' },
+        { when: 'French',    value: 'Fluent' },
+        { when: 'Norwegian', value: 'C1 (Cultural Understanding)' },
+        { when: 'Spanish',   value: 'B1' },
+      ],
+    },
   },
 
-  // ────────────────────────── §8 contact ──────────────────────────────
+  // ────────────────────────── §9 links ────────────────────────────────
+  links: {
+    intro:
+      'A small index of things from elsewhere on the internet which the author has found worth keeping.',
+    items: [] as Array<{ url: string; title: string; description?: string }>,
+  },
+
+  // ────────────────────────── §10 contact ─────────────────────────────
   contact: {
     intro: 'The author may be reached, in order of speed, by:',
     items: [

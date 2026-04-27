@@ -268,7 +268,7 @@ export const site = {
       num: '10.1',
       title: 'Mailing list',
       body:
-        'Notes posted by the author, infrequent and at length. To subscribe, send a blank message with subject &lsquo;<i>Subscribe</i>&rsquo; to <a class="latex-link" href="mailto:elias.rode@gmail.com?subject=Subscribe">elias.rode@gmail.com</a>; you will be added by hand. To unsubscribe, reply to any newsletter with the same word.',
+        'Notes posted by the author, infrequent and at length. To subscribe, send a blank message with subject &lsquo;<i>Subscribe</i>&rsquo; to <a class="latex-link" href="mailto:elias.rode@gmail.com?subject=Subscribe">elias.rode@gmail.com</a>. Alternatively, any form of request which makes it to the author&rsquo;s doorstep indicating the desire to join the mailing list (accompanied by a valid mail address) will suffice.',
     },
     signoff: {
       line: '— with cordial regards,',

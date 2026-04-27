@@ -23,6 +23,68 @@ const PALETTES = {
   ash: { paper: '#dcd8cf', ink: '#1a1a1a', accent: '#6a6a6a' },
 };
 
+function BiscuitNotice() {
+  type Phase = 'open' | 'closing' | 'closed';
+
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (typeof window === 'undefined') return 'closed';
+    try {
+      return window.localStorage.getItem('biscuits-acknowledged') === '1'
+        ? 'closed'
+        : 'open';
+    } catch {
+      return 'open';
+    }
+  });
+
+  // Persist + fade out, then unmount on animation end.
+  const beginClose = () => {
+    if (phase !== 'open') return;
+    try { window.localStorage.setItem('biscuits-acknowledged', '1'); } catch {}
+    setPhase('closing');
+    window.setTimeout(() => setPhase('closed'), 400);
+  };
+
+  // Auto-dismiss after 10s.
+  useEffect(() => {
+    if (phase !== 'open') return;
+    const t = window.setTimeout(beginClose, 10_000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  if (phase === 'closed') return null;
+
+  return (
+    <div
+      className={`biscuit-notice${phase === 'closing' ? ' is-closing' : ''}`}
+      role="status"
+      aria-live="polite"
+    >
+      <button
+        className="biscuit-close"
+        onClick={beginClose}
+        aria-label="Dismiss"
+        type="button"
+      >
+        ×
+      </button>
+      <span className="biscuit-text">
+        This website uses biscuits.{' '}
+        <a
+          className="biscuit-link"
+          href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Learn more
+        </a>
+        .
+      </span>
+    </div>
+  );
+}
+
 const easings: Record<string, (t: number) => number> = {
   cinematic: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
   snap: (t) => 1 - Math.pow(1 - t, 4),
@@ -126,6 +188,7 @@ export default function App({ posts = [] }: AppProps) {
               onReturn={returnToLibrary}
               posts={posts}
             />
+            <BiscuitNotice />
           </div>
         )}
 

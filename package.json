@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@astrojs/react": "^5.0.4",
+    "@fontsource/cormorant-garamond": "^5.2.11",
+    "@fontsource/eb-garamond": "^5.2.7",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "astro": "^6.1.9",

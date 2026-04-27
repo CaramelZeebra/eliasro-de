@@ -88,6 +88,17 @@ const posts = await Promise.all(
     <title>Elias Rode</title>
   </head>
   <body>
+    <!-- Hidden SVG filter for the merch-store "green mode" toggle: maps
+         all RGB to a luminance-derived green channel (#green-only is
+         referenced from body.green-mode in global.css). -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <filter id="green-only">
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0  0.299 0.587 0.114 0 0  0 0 0 0 0  0 0 0 1 0"
+        />
+      </filter>
+    </svg>
     <App client:load posts={posts} />
   </body>
 </html>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import LibraryScene from './LibraryScene';
 import DocumentSite from './DocumentSite';
 import AccountWidget from './AccountWidget';
+import { useAccount } from './useAccount';
 
 // Canonical configuration. The handoff prototype exposed these as a Tweaks
 // panel; in production we pin them and let the user re-enable tweaks later
@@ -78,7 +79,7 @@ function BiscuitNotice() {
         This website uses biscuits.{' '}
         <a
           className="biscuit-link"
-          href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+          href="/more"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -124,6 +125,7 @@ export default function App({ posts = [] }: AppProps) {
   const [stage, setStage] = useState<Stage>(initialStage);
   const [progress, setProgress] = useState(0);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const account = useAccount();
 
   useEffect(() => {
     const p = PALETTES[CONFIG.palette];
@@ -192,8 +194,9 @@ export default function App({ posts = [] }: AppProps) {
               layout={CONFIG.layout}
               onReturn={returnToLibrary}
               posts={posts}
+              account={account}
             />
-            <AccountWidget />
+            <AccountWidget account={account} />
             <BiscuitNotice />
           </div>
         )}

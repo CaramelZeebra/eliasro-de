@@ -27,6 +27,8 @@ export const site = {
     { id: 'blog',    num: '8',  label: 'Blog' },
     { id: 'links',   num: '9',  label: 'Links' },
     { id: 'contact', num: '10', label: 'Contact' },
+    // Hidden from TOC + Contents; navigated to from the account menu.
+    { id: 'merch',   num: 'M',  label: 'Store' },
   ] as const,
 
   // ────────────────────────── §1 about ────────────────────────────────

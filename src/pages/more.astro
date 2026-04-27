@@ -1,0 +1,24 @@
+---
+// Static redirect: any link that needs to go to the rickroll is pointed at
+// /more so its hover-tooltip / status-bar preview reads `eliasro.de/more`
+// (innocuous). The page below redirects on load via both meta-refresh
+// (works without JS) and window.location.replace (instant when JS is on).
+const target = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>One moment…</title>
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <meta name="robots" content="noindex" />
+  </head>
+  <body>
+    <script is:inline define:vars={{ target }}>
+      window.location.replace(target);
+    </script>
+    <noscript>
+      <p>If you are not redirected, <a href={target}>continue here</a>.</p>
+    </noscript>
+  </body>
+</html>

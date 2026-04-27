@@ -895,10 +895,17 @@ a { color: inherit; }
 }
 .account-name {
   display: inline-block;
-  max-width: 12em;
+  max-width: 14em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.account-fib {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  font-style: normal;
+  opacity: 0.7;
+  margin-left: 0.1em;
 }
 
 .account-menu {
@@ -1205,6 +1212,126 @@ select.account-input { cursor: pointer; }
     max-width: none;
     font-size: 0.92em;
   }
+}
+
+/* === Merch store === */
+.store-meta {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: color-mix(in oklab, var(--ink) 65%, var(--paper));
+  margin: 0.4em 0 1em;
+}
+.store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.8em;
+  margin: 0.4em 0 1.4em;
+}
+.store-tile {
+  position: relative;
+  border: 0.5px solid color-mix(in oklab, var(--ink) 30%, var(--paper));
+  background: color-mix(in oklab, var(--paper) 96%, var(--ink));
+  border-radius: 3px;
+  padding: 0.7em 0.85em 0.85em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.store-tile:not(.is-sold):hover {
+  border-color: color-mix(in oklab, var(--ink) 55%, var(--paper));
+}
+.store-tile.is-sold {
+  opacity: 0.55;
+  background: color-mix(in oklab, var(--paper) 99%, var(--ink));
+}
+.store-tile-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6em;
+}
+.store-tile-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1em;
+  letter-spacing: 0.005em;
+}
+.store-tile-cost {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  color: color-mix(in oklab, var(--ink) 60%, var(--paper));
+  white-space: nowrap;
+}
+.store-tile-body {
+  font-size: 0.88em;
+  line-height: 1.4;
+  color: color-mix(in oklab, var(--ink) 80%, var(--paper));
+  flex: 1;
+}
+.store-tile-action { margin-top: 0.2em; }
+.store-tile-buy,
+.store-tile-toggle {
+  background: var(--ink);
+  color: var(--paper);
+  border: 0;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 0.85em;
+  padding: 0.4em 0.95em;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.store-tile-buy:hover:not(:disabled),
+.store-tile-toggle:hover {
+  background: color-mix(in oklab, var(--ink) 78%, var(--accent));
+}
+.store-tile-buy:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.store-tile-toggle {
+  background: transparent;
+  color: var(--ink);
+  border: 0.5px solid color-mix(in oklab, var(--ink) 35%, var(--paper));
+}
+.store-tile-toggle:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+/* Diagonal "SOLD" stamp across the tile */
+.store-tile-sold {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-22deg);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.8em;
+  letter-spacing: 0.18em;
+  color: color-mix(in oklab, var(--accent) 85%, var(--paper));
+  border: 2px solid currentColor;
+  padding: 0.05em 0.4em;
+  border-radius: 2px;
+  pointer-events: none;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+/* Green mode: while the toggle is on, route everything through the
+   #green-only feColorMatrix in index.astro — every colour becomes a
+   shade of green keyed by its luminance. */
+body.green-mode {
+  filter: url(#green-only);
+}
+
+@media (max-width: 720px) {
+  .store-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.5em; }
+  .store-tile { padding: 0.55em 0.7em 0.7em; }
+  .store-tile-name { font-size: 0.95em; }
+  .store-tile-sold { font-size: 1.3em; }
 }
 
 /* === Links list === */

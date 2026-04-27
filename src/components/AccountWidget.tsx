@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Account } from './useAccount';
+import { fibCost } from './useAccount';
 
 // Joke "account" system. The login flow is always invalid; the signup flow
-// is hilariously long with silly validation but eventually accepts. The only
-// thing actually persisted is the username, in localStorage. No real auth,
-// no server, no judgement of the password — just live regex theatre.
+// is hilariously long with silly validation but eventually accepts. State
+// lives in useAccount() at App level; this is the UI surface only.
 
-const STORAGE_KEY      = 'account-username';
-const POINTS_KEY       = 'account-elias-points';
-const POINTS_CONSENT   = 'account-points-consent';
 const ZODIAC = [
   'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
   'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces',
@@ -15,87 +13,34 @@ const ZODIAC = [
 
 type View = 'closed' | 'login' | 'signup' | 'menu';
 
-export default function AccountWidget() {
+/** Returns the largest Fibonacci number across all owned badges (i.e.
+ *  the cost of the highest-tier badge), or 0 if no badge is owned. */
+function highestFibOwned(purchases: ReadonlySet<string>): number {
+  let maxTerm = 0;
+  purchases.forEach((p) => {
+    const m = /^fib-(\d+)$/.exec(p);
+    if (m) maxTerm = Math.max(maxTerm, parseInt(m[1], 10));
+  });
+  return maxTerm > 0 ? fibCost(maxTerm) : 0;
+}
+
+export default function AccountWidget({ account }: { account: Account }) {
   const [view, setView] = useState<View>('closed');
-  const [username, setUsername] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try { return window.localStorage.getItem(STORAGE_KEY); } catch { return null; }
-  });
-  const [points, setPoints] = useState<number>(() => {
-    if (typeof window === 'undefined') return 0;
-    try {
-      const raw = window.localStorage.getItem(POINTS_KEY);
-      return raw ? parseInt(raw, 10) || 0 : 0;
-    } catch { return 0; }
-  });
-  const [pointsConsent, setPointsConsent] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try { return window.localStorage.getItem(POINTS_CONSENT) === '1'; } catch { return false; }
-  });
-  // The consent prompt shows once, after a fresh sign-up. Reload won't reopen it.
-  const [pointsPromptOpen, setPointsPromptOpen] = useState(false);
-
-  // Dev account: visiting any URL with `?dev` seeds the localStorage with
-  // username 'elias' and points consent. Lets the author log in instantly
-  // on either origin (localhost:4321 in development, eliasro.de in prod)
-  // without going through the signup form (which forbids username < 10
-  // chars). The query param is stripped after the first run.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has('dev')) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, 'elias');
-      window.localStorage.setItem(POINTS_CONSENT, '1');
-    } catch {}
-    setUsername('elias');
-    setPointsConsent(true);
-    params.delete('dev');
-    const q = params.toString();
-    const newUrl =
-      window.location.pathname +
-      (q ? '?' + q : '') +
-      window.location.hash;
-    window.history.replaceState(null, '', newUrl);
-  }, []);
-
-  const isDevAccount = username === 'elias';
-
-  // Award one Elias Point per minute while signed in and consent has been given.
-  // The dev account is always at ∞ — no need to tick.
-  useEffect(() => {
-    if (!username || !pointsConsent || isDevAccount) return;
-    const id = window.setInterval(() => {
-      setPoints((p) => {
-        const next = p + 1;
-        try { window.localStorage.setItem(POINTS_KEY, String(next)); } catch {}
-        return next;
-      });
-    }, 60_000);
-    return () => window.clearInterval(id);
-  }, [username, pointsConsent, isDevAccount]);
-
-  const logIn = (u: string) => {
-    try { window.localStorage.setItem(STORAGE_KEY, u); } catch {}
-    setUsername(u);
-    setView('closed');
-    setPointsPromptOpen(true);
-  };
-  const logOut = () => {
-    try { window.localStorage.removeItem(STORAGE_KEY); } catch {}
-    setUsername(null);
-    setView('closed');
-  };
-  const acceptPoints = () => {
-    try { window.localStorage.setItem(POINTS_CONSENT, '1'); } catch {}
-    setPointsConsent(true);
-    setPointsPromptOpen(false);
-  };
-  const declinePoints = () => setPointsPromptOpen(false);
+  const { username, points, pointsConsent, isDev, pendingPointsPrompt } = account;
+  const highestFib = highestFibOwned(account.purchases);
 
   const onButtonClick = () => {
     if (username) setView(view === 'menu' ? 'closed' : 'menu');
     else setView('login');
+  };
+
+  const visitMerch = () => {
+    setView('closed');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('eliasro:navigate', { detail: 'merch' }),
+      );
+    }
   };
 
   return (
@@ -107,7 +52,12 @@ export default function AccountWidget() {
         type="button"
       >
         {username ? (
-          <span className="account-name">{username}</span>
+          <span className="account-name">
+            {username}
+            {highestFib > 0 && (
+              <span className="account-fib"> ({highestFib})</span>
+            )}
+          </span>
         ) : (
           <PersonIcon />
         )}
@@ -116,10 +66,13 @@ export default function AccountWidget() {
       {username && view === 'menu' && (
         <AccountMenu
           username={username}
+          isDev={isDev}
           points={points}
           pointsConsent={pointsConsent}
+          highestFib={highestFib}
           onClose={() => setView('closed')}
-          onLogOut={logOut}
+          onLogOut={account.logOut}
+          onVisitMerch={visitMerch}
         />
       )}
 
@@ -134,14 +87,17 @@ export default function AccountWidget() {
         <SignupModal
           onCancel={() => setView('closed')}
           onBackToLogin={() => setView('login')}
-          onSuccess={logIn}
+          onSuccess={(u) => {
+            account.logIn(u);
+            setView('closed');
+          }}
         />
       )}
 
-      {pointsPromptOpen && (
+      {pendingPointsPrompt && (
         <PointsPrompt
-          onAccept={acceptPoints}
-          onDecline={declinePoints}
+          onAccept={account.acceptPointsConsent}
+          onDecline={account.declinePointsConsent}
         />
       )}
     </>
@@ -168,13 +124,16 @@ function PersonIcon() {
 }
 
 function AccountMenu({
-  username, points, pointsConsent, onClose, onLogOut,
+  username, isDev, points, pointsConsent, highestFib, onClose, onLogOut, onVisitMerch,
 }: {
   username: string;
+  isDev: boolean;
   points: number;
   pointsConsent: boolean;
+  highestFib: number;
   onClose: () => void;
   onLogOut: () => void;
+  onVisitMerch: () => void;
 }) {
   // Click outside to close.
   const ref = useRef<HTMLDivElement | null>(null);
@@ -191,12 +150,14 @@ function AccountMenu({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [onClose]);
 
-  const isDev = username === 'elias';
-
   return (
     <div className="account-menu" ref={ref} role="menu">
       <div className="account-menu-head">
-        Signed in as <strong>{username}</strong>
+        Signed in as{' '}
+        <strong>
+          {username}
+          {highestFib > 0 && <span className="account-fib"> ({highestFib})</span>}
+        </strong>
       </div>
       <div className="account-menu-points">
         Elias Points: <strong>{isDev ? '∞' : points}</strong>
@@ -204,6 +165,13 @@ function AccountMenu({
           <span className="account-menu-points-note"> (cookies declined)</span>
         )}
       </div>
+      <button
+        type="button"
+        className="account-menu-action"
+        onClick={onVisitMerch}
+      >
+        Merch store
+      </button>
       <button
         type="button"
         className="account-menu-action"

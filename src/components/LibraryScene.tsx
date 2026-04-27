@@ -325,7 +325,7 @@ function PaperContents() {
       <div className="latex-author">{meta.name}</div>
       <div className="latex-affiliation"><i>Trinity College Dublin</i></div>
       <div className="latex-abstract-head">Abstract</div>
-      <div className="latex-abstract" dangerouslySetInnerHTML={html(`<i>${meta.abstract.split('. ')[0]}.</i>`)} />
+      <div className="latex-abstract" dangerouslySetInnerHTML={html(`<i>${paperPreview.abstract}</i>`)} />
       <div className="latex-section"><span className="latex-num">{paperPreview.section1.num}</span> {paperPreview.section1.title}</div>
       <div className="latex-body" dangerouslySetInnerHTML={html(paperPreview.section1.body)} />
       <div className="latex-section"><span className="latex-num">{paperPreview.section2.num}</span> {paperPreview.section2.title}</div>

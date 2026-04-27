@@ -10,7 +10,7 @@ export const site = {
     affiliation:
       'Student of Mathematics &amp; Philosophy, Trinity College Dublin',
     abstract:
-      'This document collects, in a single volume, the author&rsquo;s biographical sketch (§1), a register of works in progress (§2), a list of writings (§3), an annotated reading list (§4), an account of recent occupations (§5), an academic record (§6), and the canonical avenues by which one may make contact (§7). The reader is invited to turn the page.',
+      'This document collects, in a single volume, the author&rsquo;s biographical sketch (§1), a register of works (§2), a list of writings (§3), an annotated list of recently watched films (§4), an account of recent occupations (§5), a record of subjects studied (§6), an abridged curriculum vit&aelig; (§7), a journal of occasional entries (§8), an index of recommendations from elsewhere on the internet (§9), and the canonical avenues by which one may make contact (§10). The reader is invited to turn the page.',
     compiledDate: '2026&#8209;04&#8209;26',
   },
 
@@ -38,7 +38,7 @@ export const site = {
     inhabitations: {
       num: '1.1',
       title: 'Inhabitations',
-      body: 'Having previously resided in Paris, I currently call Dublin home as I study at Trinity College Dublin. I am however.',
+      body: 'Having previously resided in Paris, I currently call Dublin home as I study at Trinity College Dublin. I am, however, keeping an eye on different programmes and experiences available across the rest of Europe.',
     },
     pursuits: {
       num: '1.2',
@@ -272,7 +272,11 @@ export const site = {
   },
 
   // ────────────── paper preview shown on the desk in the library ──────
+  // A miniature version of the title page; shortened so the small paper
+  // remains legible. Update to track meta.abstract when that changes.
   paperPreview: {
+    abstract:
+      'This document collects, in a single volume, the author&rsquo;s biographical sketch, a register of works, recent occupations, an academic record, occasional entries, and the canonical avenues by which one may make contact.',
     section1: {
       num: '1',
       title: 'About',

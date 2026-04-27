@@ -8,12 +8,11 @@ const POINTS_KEY       = 'account-elias-points';
 const POINTS_CONSENT   = 'account-points-consent';
 const purchasesKey     = (u: string) => `account-purchases-${u}`;
 
-/** Cost of the n-th Fibonacci badge: 1, 2, 3, 5, 8, 13, … */
+/** Cost of the n-th Fibonacci badge: 1, 1, 2, 3, 5, 8, 13, … */
 export function fibCost(n: number): number {
   if (n <= 0) return 0;
-  if (n === 1) return 1;
-  if (n === 2) return 2;
-  let a = 1, b = 2;
+  if (n === 1 || n === 2) return 1;
+  let a = 1, b = 1;
   for (let i = 3; i <= n; i++) {
     [a, b] = [b, a + b];
   }
@@ -38,6 +37,8 @@ export interface Account {
   pointsConsent: boolean;
   purchases: ReadonlySet<string>;
   pendingPointsPrompt: boolean;
+  /** Whether green mode is currently applied. Session-only; not persisted. */
+  greenMode: boolean;
 
   // Mutators
   logIn: (u: string) => void;
@@ -51,6 +52,7 @@ export interface Account {
   setPointsConsent: (v: boolean) => void;
   /** Wipe account + purchases and reload. */
   deleteAccount: () => void;
+  setGreenMode: (v: boolean) => void;
 }
 
 export function useAccount(): Account {
@@ -76,8 +78,22 @@ export function useAccount(): Account {
     return new Set(readJsonArray(purchasesKey(u)));
   });
   const [pendingPointsPrompt, setPendingPointsPrompt] = useState(false);
+  // Session-only — not persisted. Resets on reload, and explicitly on
+  // library→document camera-dolly transitions (handled by App.tsx).
+  const [greenMode, setGreenMode] = useState(false);
 
   const isDev = username === 'elias';
+
+  // Apply / remove the body class whenever greenMode flips. The class is
+  // wired to `body.green-mode { filter: url(#green-only) }` in global.css,
+  // which paints the entire site in shades of green via SVG colour matrix.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const cls = 'green-mode';
+    if (greenMode) document.body.classList.add(cls);
+    else document.body.classList.remove(cls);
+    return () => document.body.classList.remove(cls);
+  }, [greenMode]);
 
   // Re-read purchases whenever the active username changes (login / logout).
   const usernameRef = useRef(username);
@@ -203,6 +219,7 @@ export function useAccount(): Account {
       pointsConsent,
       purchases,
       pendingPointsPrompt,
+      greenMode,
       logIn,
       logOut,
       acceptPointsConsent,
@@ -211,8 +228,9 @@ export function useAccount(): Account {
       setPointsConsent,
       buy,
       deleteAccount,
+      setGreenMode,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [username, isDev, points, pointsConsent, purchases, pendingPointsPrompt],
+    [username, isDev, points, pointsConsent, purchases, pendingPointsPrompt, greenMode],
   );
 }

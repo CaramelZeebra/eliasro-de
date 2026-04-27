@@ -134,6 +134,14 @@ export default function App({ posts = [] }: AppProps) {
     document.documentElement.style.setProperty('--accent', p.accent);
   }, []);
 
+  // Green mode persists across all document-page navigation; the ONE place
+  // it auto-resets is when the user re-enters the document from the library
+  // (i.e. the camera dolly is in flight).
+  useEffect(() => {
+    if (stage === 'zooming') account.setGreenMode(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
   const triggerZoom = useCallback(() => {
     if (stage !== 'library') return;
     setStage('zooming');

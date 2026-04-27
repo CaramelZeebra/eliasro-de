@@ -616,14 +616,6 @@ interface StaticItem {
 
 function PageMerch() {
   const account = useAccountCtx();
-  // Session-only: green-mode toggle resets on every page load.
-  const [greenOn, setGreenOn] = useState(false);
-  useEffect(() => {
-    const cls = 'green-mode';
-    if (greenOn) document.body.classList.add(cls);
-    else document.body.classList.remove(cls);
-    return () => document.body.classList.remove(cls);
-  }, [greenOn]);
 
   if (!account || !account.username) {
     return (
@@ -717,9 +709,9 @@ function PageMerch() {
             <button
               type="button"
               className="store-tile-toggle"
-              onClick={() => setGreenOn((v) => !v)}
+              onClick={() => account.setGreenMode(!account.greenMode)}
             >
-              {greenOn ? 'turn off' : 'turn on'}
+              {account.greenMode ? 'turn off' : 'turn on'}
             </button>
           ) : isOwned ? null : (
             <button

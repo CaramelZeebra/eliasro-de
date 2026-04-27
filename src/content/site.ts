@@ -251,7 +251,13 @@ export const site = {
   links: {
     intro:
       'A small index of things from elsewhere on the internet which the author has found worth keeping.',
-    items: [] as Array<{ url: string; title: string; description?: string }>,
+    items: [
+      {
+        url: 'https://www.madandmoonly.com/doctormatt/misc.htm',
+        title: 'Matthew Conroy — a list of dice problems',
+        description: 'of interest to the aspiring probabilist',
+      },
+    ] as Array<{ url: string; title: string; description?: string }>,
   },
 
   // ────────────────────────── §10 contact ─────────────────────────────

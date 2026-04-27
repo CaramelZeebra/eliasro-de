@@ -37,18 +37,22 @@ function BiscuitNotice() {
     }
   });
 
-  // Persist + fade out, then unmount on animation end.
-  const beginClose = () => {
+  // Fade out then unmount. Only persists to localStorage when the user
+  // explicitly closes — letting the notice auto-expire is *not* consent
+  // and shouldn't grant a "cookie" (the joke's whole point).
+  const beginClose = (persist: boolean) => {
     if (phase !== 'open') return;
-    try { window.localStorage.setItem('biscuits-acknowledged', '1'); } catch {}
+    if (persist) {
+      try { window.localStorage.setItem('biscuits-acknowledged', '1'); } catch {}
+    }
     setPhase('closing');
     window.setTimeout(() => setPhase('closed'), 400);
   };
 
-  // Auto-dismiss after 10s.
+  // Auto-dismiss after 10s — without persisting.
   useEffect(() => {
     if (phase !== 'open') return;
-    const t = window.setTimeout(beginClose, 10_000);
+    const t = window.setTimeout(() => beginClose(false), 10_000);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
@@ -63,7 +67,7 @@ function BiscuitNotice() {
     >
       <button
         className="biscuit-close"
-        onClick={beginClose}
+        onClick={() => beginClose(true)}
         aria-label="Dismiss"
         type="button"
       >

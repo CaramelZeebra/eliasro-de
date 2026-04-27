@@ -220,6 +220,7 @@ function PageContents({
         {page.id === 'writing' && <PageWriting />}
         {page.id === 'reading' && <PageReading />}
         {page.id === 'now' && <PageNow />}
+        {page.id === 'studies' && <PageStudies />}
         {page.id === 'cv' && <PageCV />}
         {page.id === 'contact' && <PageContact />}
       </div>
@@ -389,6 +390,26 @@ function PageNow() {
   );
 }
 
+function PageStudies() {
+  const { studies } = site;
+  return (
+    <>
+      <Section num="6" title="Studies" />
+      <Html as="div" className="latex-body" html={studies.intro} />
+      {studies.blocks.map((b) => (
+        <div key={b.num}>
+          <Section num={b.num} title={b.title} />
+          <Html
+            as="div"
+            className="latex-modules"
+            html={b.modules.join(' &middot; ') + '.'}
+          />
+        </div>
+      ))}
+    </>
+  );
+}
+
 function PageCV() {
   const { cv } = site;
   const renderRow = (
@@ -407,7 +428,7 @@ function PageCV() {
 
   return (
     <>
-      <Section num="6" title="Curriculum Vitæ" />
+      <Section num="7" title="Curriculum Vitæ" />
       <Html as="div" className="latex-body" html={cv.intro} />
 
       <Section num={cv.education.num} title={cv.education.title} />
@@ -446,7 +467,7 @@ function PageContact() {
   const { contact } = site;
   return (
     <>
-      <Section num="7" title="Correspondence" />
+      <Section num="8" title="Correspondence" />
       <div className="latex-body">{contact.intro}</div>
 
       <div className="latex-contact-grid">

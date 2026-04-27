@@ -22,8 +22,9 @@ export const site = {
     { id: 'writing', num: '3', label: 'Writing' },
     { id: 'reading', num: '4', label: 'Reading' },
     { id: 'now',     num: '5', label: 'Now' },
-    { id: 'cv',      num: '6', label: 'Curriculum' },
-    { id: 'contact', num: '7', label: 'Contact' },
+    { id: 'studies', num: '6', label: 'Studies' },
+    { id: 'cv',      num: '7', label: 'Curriculum' },
+    { id: 'contact', num: '8', label: 'Contact' },
   ] as const,
 
   // ────────────────────────── §1 about ────────────────────────────────
@@ -116,12 +117,73 @@ export const site = {
     ],
   },
 
-  // ────────────────────────── §6 cv ───────────────────────────────────
+  // ────────────────────────── §6 studies ──────────────────────────────
+  studies: {
+    intro:
+      'An ordered record of subjects studied at Trinity College Dublin and, prior, in secondary school. The lists are partial; modules taken on whim or for credit may have escaped this register.',
+    blocks: [
+      {
+        num: '6.1',
+        title: 'Year I',
+        modules: [
+          'Single Variable Calculus and Introductory Analysis',
+          'Linear Algebra',
+          'Analysis on the Real Line',
+          'Advanced Calculus',
+          'History of Western Philosophy I',
+          'Central Problems in Philosophy',
+        ],
+      },
+      {
+        num: '6.2',
+        title: 'Year II',
+        modules: [
+          'Ordinary Differential Equations',
+          'Introduction to Complex Analysis',
+          'Calculus on Manifolds',
+          'Analysis in Several Real Variables',
+          'Advanced Analysis',
+          'Group Theory',
+          'Fields, Rings, and Modules',
+          'Logic',
+          'Epistemology and Philosophy of Science',
+          'History of Western Philosophy II',
+        ],
+      },
+      {
+        num: '6.3',
+        title: 'Year III',
+        modules: [
+          'Commutative Algebra',
+          'Euclidean and Non&#8209;Euclidean Geometry',
+          'Fixed Point Theorems and Economic Equilibria',
+          'Galois Theory',
+          'Introduction to Number Theory',
+          'Lie Algebras and Lie Groups',
+          'Symbolic Programming',
+          'Artificial Intelligence I',
+          'Meta&#8209;ethics',
+          'Political Philosophy',
+          'Logic and Philosophy',
+        ],
+      },
+      {
+        num: '6.4',
+        title: 'Leaving Certificate',
+        modules: [
+          'French', 'Spanish', 'Mathematics', 'Applied Maths',
+          'Physics', 'Chemistry', 'Engineering', 'English', 'Irish',
+        ],
+      },
+    ],
+  },
+
+  // ────────────────────────── §7 cv ───────────────────────────────────
   cv: {
     intro:
       'An abridged record. A complete .pdf is filed at <a class="latex-link" href="/cv.pdf">/cv.pdf</a>.',
     education: {
-      num: '6.1',
+      num: '7.1',
       title: 'Education',
       rows: [
         {
@@ -140,7 +202,7 @@ export const site = {
       ],
     },
     experience: {
-      num: '6.2',
+      num: '7.2',
       title: 'Experience',
       rows: [
         {
@@ -163,7 +225,7 @@ export const site = {
       ],
     },
     skills: {
-      num: '6.3',
+      num: '7.3',
       title: 'Skills',
       rows: [
         { when: 'Programming', value: 'Python · Prolog · Bash · C++ · SQL' },
@@ -173,7 +235,7 @@ export const site = {
     },
   },
 
-  // ────────────────────────── §7 contact ──────────────────────────────
+  // ────────────────────────── §8 contact ──────────────────────────────
   contact: {
     intro: 'The author may be reached, in order of speed, by:',
     items: [

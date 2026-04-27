@@ -35,9 +35,36 @@ export default function AccountWidget() {
   // The consent prompt shows once, after a fresh sign-up. Reload won't reopen it.
   const [pointsPromptOpen, setPointsPromptOpen] = useState(false);
 
-  // Award one Elias Point per minute while signed in and consent has been given.
+  // Dev account: visiting any URL with `?dev` seeds the localStorage with
+  // username 'elias' and points consent. Lets the author log in instantly
+  // on either origin (localhost:4321 in development, eliasro.de in prod)
+  // without going through the signup form (which forbids username < 10
+  // chars). The query param is stripped after the first run.
   useEffect(() => {
-    if (!username || !pointsConsent) return;
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('dev')) return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, 'elias');
+      window.localStorage.setItem(POINTS_CONSENT, '1');
+    } catch {}
+    setUsername('elias');
+    setPointsConsent(true);
+    params.delete('dev');
+    const q = params.toString();
+    const newUrl =
+      window.location.pathname +
+      (q ? '?' + q : '') +
+      window.location.hash;
+    window.history.replaceState(null, '', newUrl);
+  }, []);
+
+  const isDevAccount = username === 'elias';
+
+  // Award one Elias Point per minute while signed in and consent has been given.
+  // The dev account is always at ∞ — no need to tick.
+  useEffect(() => {
+    if (!username || !pointsConsent || isDevAccount) return;
     const id = window.setInterval(() => {
       setPoints((p) => {
         const next = p + 1;
@@ -46,7 +73,7 @@ export default function AccountWidget() {
       });
     }, 60_000);
     return () => window.clearInterval(id);
-  }, [username, pointsConsent]);
+  }, [username, pointsConsent, isDevAccount]);
 
   const logIn = (u: string) => {
     try { window.localStorage.setItem(STORAGE_KEY, u); } catch {}
@@ -164,14 +191,16 @@ function AccountMenu({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [onClose]);
 
+  const isDev = username === 'elias';
+
   return (
     <div className="account-menu" ref={ref} role="menu">
       <div className="account-menu-head">
         Signed in as <strong>{username}</strong>
       </div>
       <div className="account-menu-points">
-        Elias Points: <strong>{points}</strong>
-        {!pointsConsent && (
+        Elias Points: <strong>{isDev ? '∞' : points}</strong>
+        {!pointsConsent && !isDev && (
           <span className="account-menu-points-note"> (cookies declined)</span>
         )}
       </div>

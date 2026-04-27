@@ -319,6 +319,63 @@ interface PassCheck {
   label: string;
 }
 
+// ───────────── Date / zodiac helpers (signup validators) ─────────────
+
+function parseDob(dob: string): Date | null {
+  // <input type="date"> emits YYYY-MM-DD.
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob);
+  if (!m) return null;
+  const [, y, mo, d] = m;
+  const date = new Date(`${y}-${mo}-${d}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  // Round-trip check rejects "Feb 31" etc.
+  if (
+    date.getFullYear() !== +y ||
+    date.getMonth() + 1 !== +mo ||
+    date.getDate() !== +d
+  ) return null;
+  return date;
+}
+
+function ageOn(dob: Date, ref: Date = new Date()): number {
+  let age = ref.getFullYear() - dob.getFullYear();
+  const m = ref.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && ref.getDate() < dob.getDate())) age--;
+  return age;
+}
+
+// Crude "looks like a placeholder" filter — month equal to day (01-01,
+// 11-11, …), New Year's Eve, leap-day. Matches the user's example
+// 01/01/2000.
+function dobLooksFake(dob: Date): boolean {
+  const m = dob.getMonth() + 1;
+  const d = dob.getDate();
+  if (m === d) return true;
+  if (m === 12 && d === 31) return true;
+  if (m === 2 && d === 29) return true;
+  return false;
+}
+
+function zodiacFor(dob: Date): string {
+  const m = dob.getMonth() + 1;
+  const d = dob.getDate();
+  if ((m === 12 && d >= 22) || (m === 1  && d <= 19)) return 'Capricorn';
+  if ((m === 1  && d >= 20) || (m === 2  && d <= 18)) return 'Aquarius';
+  if ((m === 2  && d >= 19) || (m === 3  && d <= 20)) return 'Pisces';
+  if ((m === 3  && d >= 21) || (m === 4  && d <= 19)) return 'Aries';
+  if ((m === 4  && d >= 20) || (m === 5  && d <= 20)) return 'Taurus';
+  if ((m === 5  && d >= 21) || (m === 6  && d <= 20)) return 'Gemini';
+  if ((m === 6  && d >= 21) || (m === 7  && d <= 22)) return 'Cancer';
+  if ((m === 7  && d >= 23) || (m === 8  && d <= 22)) return 'Leo';
+  if ((m === 8  && d >= 23) || (m === 9  && d <= 22)) return 'Virgo';
+  if ((m === 9  && d >= 23) || (m === 10 && d <= 22)) return 'Libra';
+  if ((m === 10 && d >= 23) || (m === 11 && d <= 21)) return 'Scorpio';
+  if ((m === 11 && d >= 22) || (m === 12 && d <= 21)) return 'Sagittarius';
+  return '';
+}
+
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
+
 function passwordChecks(pass: string): PassCheck[] {
   return [
     { ok: pass.length >= 12,                    label: 'At least 12 characters' },
@@ -385,14 +442,43 @@ function SignupModal({
     return () => window.clearTimeout(t);
   }, [user]);
 
+  // Date of birth validation: real date, in past, age 16–99, not "placeholder".
+  const dobDate = parseDob(dob);
+  let dobError: string | null = null;
+  let dobValid = false;
+  if (dob.length > 0) {
+    if (!dobDate) {
+      dobError = 'This date is invalid.';
+    } else if (dobDate.getTime() > Date.now()) {
+      dobError = 'Date of birth must be in the past.';
+    } else {
+      const age = ageOn(dobDate);
+      if (age < 16) {
+        dobError = 'You must be at least 16 years old to register.';
+      } else if (age > 99) {
+        dobError = 'Records do not extend beyond 99 years.';
+      } else if (dobLooksFake(dobDate)) {
+        dobError =
+          'This date appears to be a placeholder; please use your real date of birth.';
+      } else {
+        dobValid = true;
+      }
+    }
+  }
+
+  // Zodiac coherence.
+  const expectedZodiac = dobDate ? zodiacFor(dobDate) : '';
+  const zodiacOk = !!zodiac && !!expectedZodiac && zodiac === expectedZodiac;
+  const zodiacMismatch = !!zodiac && !!expectedZodiac && zodiac !== expectedZodiac;
+
   const checks = passwordChecks(pass);
   const passValid = pass.length > 0 && checks.every((c) => c.ok);
 
   const allValid =
     nameValid &&
-    dob.length > 0 &&
+    dobValid &&
     addressStatus === 'verified' &&
-    zodiac.length > 0 &&
+    zodiacOk &&
     factValid &&
     userStatus === 'available' &&
     passValid;
@@ -432,8 +518,12 @@ function SignupModal({
             type="date"
             value={dob}
             onChange={(e) => setDob(e.target.value)}
+            max={TODAY_ISO}
             required
           />
+          {dobError && (
+            <span className="account-check is-bad">✗ {dobError}</span>
+          )}
         </label>
 
         <label className="account-field">
@@ -469,6 +559,14 @@ function SignupModal({
             <option value="">Select…</option>
             {ZODIAC.map((z) => <option key={z} value={z}>{z}</option>)}
           </select>
+          {zodiacMismatch && (
+            <span className="account-check is-bad">
+              ✗ This sign does not match the date of birth provided.
+            </span>
+          )}
+          {zodiacOk && (
+            <span className="account-check is-ok">✓ Sign verified.</span>
+          )}
         </label>
 
         <label className="account-field">

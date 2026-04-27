@@ -256,13 +256,20 @@ export const site = {
 
   // ────────────────────────── §10 contact ─────────────────────────────
   contact: {
-    intro: 'The author may be reached, in order of speed, by:',
+    intro: 'The author may be reached, in order of personal preference, by:',
     items: [
-      { key: 'e&#8209;mail', value: '<a class="latex-link" href="mailto:elias.rode@gmail.com">elias.rode@gmail.com</a>' },
-      { key: 'e&#8209;mail', value: '<a class="latex-link" href="mailto:rodee@tcd.ie">rodee@tcd.ie</a>' },
-      { key: 'github',       value: '<a class="latex-link" href="https://github.com/CaramelZeebra" target="_blank" rel="noopener">github.com/CaramelZeebra</a>' },
-      { key: 'linkedin',     value: '<a class="latex-link" href="https://www.linkedin.com/in/elias-rode-37a95a404/" target="_blank" rel="noopener">linkedin.com/in/elias-rode</a>' },
+      { key: 'e&#8209;mail',  value: '<a class="latex-link" href="mailto:elias.rode@gmail.com">elias.rode@gmail.com</a>' },
+      { key: 'e&#8209;mail',  value: '<a class="latex-link" href="mailto:rodee@tcd.ie">rodee@tcd.ie</a>' },
+      { key: 'telephone', value: '<a class="latex-link" href="tel:+353851004364">+353 85 100 4364</a>', mono: true },
+      { key: 'github',        value: '<a class="latex-link" href="https://github.com/CaramelZeebra" target="_blank" rel="noopener">github.com/CaramelZeebra</a>' },
+      { key: 'linkedin',      value: '<a class="latex-link" href="https://www.linkedin.com/in/elias-rode-37a95a404/" target="_blank" rel="noopener">linkedin.com/in/elias-rode</a>' },
     ],
+    mailingList: {
+      num: '10.1',
+      title: 'Mailing list',
+      body:
+        'Notes posted by the author, infrequent and at length. To subscribe, send a blank message with subject &lsquo;<i>Subscribe</i>&rsquo; to <a class="latex-link" href="mailto:elias.rode@gmail.com?subject=Subscribe">elias.rode@gmail.com</a>; you will be added by hand. To unsubscribe, reply to any newsletter with the same word.',
+    },
     signoff: {
       line: '— with cordial regards,',
       name: 'E. R.',

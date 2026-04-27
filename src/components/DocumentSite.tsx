@@ -495,6 +495,12 @@ function PageBlog() {
           <article key={p.slug} className="blog-post">
             <header className="blog-post-head">
               <h3 className="blog-post-title">{p.title}</h3>
+              <a
+                className="blog-post-reply"
+                href={`mailto:elias.rode@gmail.com?subject=${encodeURIComponent('Re: ' + p.title)}`}
+              >
+                [reply by email]
+              </a>
               <time className="blog-post-date">{p.date}</time>
             </header>
             {p.summary && (
@@ -554,8 +560,8 @@ function PageContact() {
       <div className="latex-body">{contact.intro}</div>
 
       <div className="latex-contact-grid">
-        {contact.items.map((c) => (
-          <div className="contact-row" key={c.key}>
+        {contact.items.map((c, i) => (
+          <div className="contact-row" key={`${c.key}-${i}`}>
             <Html as="div" className="contact-key" html={c.key} />
             <Html
               as="div"
@@ -565,6 +571,9 @@ function PageContact() {
           </div>
         ))}
       </div>
+
+      <Section num={contact.mailingList.num} title={contact.mailingList.title} />
+      <Html as="div" className="latex-body" html={contact.mailingList.body} />
 
       <div className="latex-signoff">
         <div className="signoff-text">{contact.signoff.line}</div>

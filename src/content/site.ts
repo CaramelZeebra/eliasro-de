@@ -257,6 +257,25 @@ export const site = {
         title: 'Matthew Conroy — a list of dice problems',
         description: 'of interest to the aspiring probabilist',
       },
+      {
+        url: 'https://detexify.kirelabs.org/classify.html',
+        title: 'Detexify — a LaTeX symbol classifier',
+        description: 'the power of artificial intelligence applied to the problem of remembering what a given symbol is called',
+      },
+      {
+        url: 'https://p2r3.github.io/convert/',
+        title: 'Convert',
+        description: 'convert file A into file B',
+      },
+      {
+        url: 'https://q.uiver.app/',
+        title: 'quiver — a commutative diagram editor',
+        description: 'with one-click export to LaTeX',
+      },
+      {
+        url: 'https://www.firefox.com/en-US/',
+        title: 'Install Firefox',
+      },
     ] as Array<{ url: string; title: string; description?: string }>,
   },
 

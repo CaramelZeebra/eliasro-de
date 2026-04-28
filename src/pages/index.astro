@@ -32,6 +32,21 @@ const autoGallery = (slug: string): string[] => {
   }
 };
 
+// Auto-discover any images dropped into public/streetview/. Captured via
+// the capture-streetview launcher entry; used as the random-image set in
+// the merch store's "delivery address" modal.
+const streetviewDir = path.join(process.cwd(), 'public', 'streetview');
+const streetview: string[] = (() => {
+  try {
+    return fs.readdirSync(streetviewDir)
+      .filter((f) => /\.(jpe?g|png|webp|gif|avif)$/i.test(f))
+      .sort()
+      .map((f) => `/streetview/${f}`);
+  } catch {
+    return [];
+  }
+})();
+
 // Build-time: read all blog posts, render their markdown bodies to HTML,
 // pass to the React app as a prop. Sorted newest first.
 const entries = await getCollection('blog');
@@ -99,6 +114,6 @@ const posts = await Promise.all(
         />
       </filter>
     </svg>
-    <App client:load posts={posts} />
+    <App client:load posts={posts} streetview={streetview} />
   </body>
 </html>

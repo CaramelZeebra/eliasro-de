@@ -119,9 +119,10 @@ const initialStage = (): Stage =>
 
 interface AppProps {
   posts?: BlogPost[];
+  streetview?: string[];
 }
 
-export default function App({ posts = [] }: AppProps) {
+export default function App({ posts = [], streetview = [] }: AppProps) {
   const [stage, setStage] = useState<Stage>(initialStage);
   const [progress, setProgress] = useState(0);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -202,6 +203,7 @@ export default function App({ posts = [] }: AppProps) {
               layout={CONFIG.layout}
               onReturn={returnToLibrary}
               posts={posts}
+              streetview={streetview}
               account={account}
             />
             <AccountWidget account={account} />

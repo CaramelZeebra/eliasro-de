@@ -7,6 +7,8 @@ const USERNAME_KEY     = 'account-username';
 const POINTS_KEY       = 'account-elias-points';
 const POINTS_CONSENT   = 'account-points-consent';
 const purchasesKey     = (u: string) => `account-purchases-${u}`;
+const deliveryKey      = (u: string) => `account-delivery-${u}`;
+const deliveryBlockKey = (u: string) => `account-delivery-blocked-${u}`;
 
 /** Cost of the n-th Fibonacci badge: 1, 1, 2, 3, 5, 8, 13, … */
 export function fibCost(n: number): number {
@@ -39,6 +41,10 @@ export interface Account {
   pendingPointsPrompt: boolean;
   /** Whether green mode is currently applied. Session-only; not persisted. */
   greenMode: boolean;
+  /** Saved delivery-address image URL (per-username), null if unset. */
+  deliveryAddress: string | null;
+  /** Once true, the account can no longer set a delivery address. */
+  deliveryBlocked: boolean;
 
   // Mutators
   logIn: (u: string) => void;
@@ -53,6 +59,8 @@ export interface Account {
   /** Wipe account + purchases and reload. */
   deleteAccount: () => void;
   setGreenMode: (v: boolean) => void;
+  setDeliveryAddress: (img: string | null) => void;
+  setDeliveryBlocked: (v: boolean) => void;
 }
 
 export function useAccount(): Account {
@@ -81,6 +89,18 @@ export function useAccount(): Account {
   // Session-only — not persisted. Resets on reload, and explicitly on
   // library→document camera-dolly transitions (handled by App.tsx).
   const [greenMode, setGreenMode] = useState(false);
+  const [deliveryAddress, setDeliveryAddressState] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const u = (() => { try { return window.localStorage.getItem(USERNAME_KEY); } catch { return null; } })();
+    if (!u) return null;
+    try { return window.localStorage.getItem(deliveryKey(u)); } catch { return null; }
+  });
+  const [deliveryBlocked, setDeliveryBlockedState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const u = (() => { try { return window.localStorage.getItem(USERNAME_KEY); } catch { return null; } })();
+    if (!u) return false;
+    try { return window.localStorage.getItem(deliveryBlockKey(u)) === '1'; } catch { return false; }
+  });
 
   const isDev = username === 'elias';
 
@@ -95,16 +115,26 @@ export function useAccount(): Account {
     return () => document.body.classList.remove(cls);
   }, [greenMode]);
 
-  // Re-read purchases whenever the active username changes (login / logout).
+  // Re-read per-user state whenever the active username changes (login/out).
   const usernameRef = useRef(username);
   useEffect(() => {
     if (usernameRef.current === username) return;
     usernameRef.current = username;
     if (!username) {
       setPurchases(new Set());
+      setDeliveryAddressState(null);
+      setDeliveryBlockedState(false);
       return;
     }
     setPurchases(new Set(readJsonArray(purchasesKey(username))));
+    try {
+      setDeliveryAddressState(window.localStorage.getItem(deliveryKey(username)));
+    } catch { setDeliveryAddressState(null); }
+    try {
+      setDeliveryBlockedState(
+        window.localStorage.getItem(deliveryBlockKey(username)) === '1',
+      );
+    } catch { setDeliveryBlockedState(false); }
   }, [username]);
 
   // ?dev URL trigger — seeds the elias dev account on any browser/origin.
@@ -164,10 +194,14 @@ export function useAccount(): Account {
     // Drop everything tied to the current user.
     if (username) {
       try { window.localStorage.removeItem(purchasesKey(username)); } catch {}
+      try { window.localStorage.removeItem(deliveryKey(username)); } catch {}
+      try { window.localStorage.removeItem(deliveryBlockKey(username)); } catch {}
     }
     try { window.localStorage.removeItem(USERNAME_KEY); } catch {}
     setUsername(null);
     setPurchases(new Set());
+    setDeliveryAddressState(null);
+    setDeliveryBlockedState(false);
   };
   const acceptPointsConsent = () => {
     try { window.localStorage.setItem(POINTS_CONSENT, '1'); } catch {}
@@ -206,9 +240,28 @@ export function useAccount(): Account {
   const deleteAccount = () => {
     if (username) {
       try { window.localStorage.removeItem(purchasesKey(username)); } catch {}
+      try { window.localStorage.removeItem(deliveryKey(username)); } catch {}
+      try { window.localStorage.removeItem(deliveryBlockKey(username)); } catch {}
     }
     try { window.localStorage.removeItem(USERNAME_KEY); } catch {}
     if (typeof window !== 'undefined') window.location.reload();
+  };
+
+  const setDeliveryAddress = (img: string | null) => {
+    if (!username) return;
+    try {
+      if (img) window.localStorage.setItem(deliveryKey(username), img);
+      else     window.localStorage.removeItem(deliveryKey(username));
+    } catch {}
+    setDeliveryAddressState(img);
+  };
+  const setDeliveryBlocked = (v: boolean) => {
+    if (!username) return;
+    try {
+      if (v) window.localStorage.setItem(deliveryBlockKey(username), '1');
+      else   window.localStorage.removeItem(deliveryBlockKey(username));
+    } catch {}
+    setDeliveryBlockedState(v);
   };
 
   return useMemo<Account>(
@@ -220,6 +273,8 @@ export function useAccount(): Account {
       purchases,
       pendingPointsPrompt,
       greenMode,
+      deliveryAddress,
+      deliveryBlocked,
       logIn,
       logOut,
       acceptPointsConsent,
@@ -229,8 +284,10 @@ export function useAccount(): Account {
       buy,
       deleteAccount,
       setGreenMode,
+      setDeliveryAddress,
+      setDeliveryBlocked,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [username, isDev, points, pointsConsent, purchases, pendingPointsPrompt, greenMode],
+    [username, isDev, points, pointsConsent, purchases, pendingPointsPrompt, greenMode, deliveryAddress, deliveryBlocked],
   );
 }

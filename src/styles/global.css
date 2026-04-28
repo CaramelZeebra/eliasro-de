@@ -1215,6 +1215,98 @@ select.account-input { cursor: pointer; }
 }
 
 /* === Merch store === */
+.merch-header-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6em;
+  flex-wrap: wrap;
+}
+.merch-header-row .latex-section { margin: 1.2em 0 0.4em; }
+.merch-delivery-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  background: transparent;
+  border: 0.5px solid color-mix(in oklab, var(--ink) 35%, var(--paper));
+  color: color-mix(in oklab, var(--ink) 80%, var(--paper));
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 0.85em;
+  padding: 0.35em 0.85em 0.35em 0.4em;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.merch-delivery-btn:hover {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.merch-delivery-btn span { padding: 0 0.2em; }
+.merch-delivery-thumb {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 0.5px solid color-mix(in oklab, var(--ink) 30%, var(--paper));
+  display: block;
+}
+
+/* Delivery modal — square image; sized to whichever is smaller of (480px,
+   the modal's content width, the viewport-height budget). Keeps the
+   question + action buttons in view regardless of screen size. */
+.account-modal.delivery-modal {
+  /* Box width budget: cap at 480, fit viewport width, fit available
+     viewport height after accounting for header / question / buttons.
+     Image aspect is 17:14 (1020×840 captured), so height budget converts
+     back to width via × 17/14. */
+  --delivery-w: min(480px, calc(100dvw - 2.4em), calc((100dvh - 12em) * 17 / 14));
+  max-width: calc(var(--delivery-w) + 2.4em);
+}
+.delivery-body {
+  padding: 1em 1.2em 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+  align-items: center;
+}
+.delivery-image-wrap {
+  width: var(--delivery-w);
+  aspect-ratio: 1020 / 840;
+  flex: 0 0 auto;
+  position: relative;
+  border-radius: 3px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--paper) 85%, var(--ink));
+  border: 0.5px solid color-mix(in oklab, var(--ink) 25%, var(--paper));
+  animation: delivery-fade 0.25s ease-out both;
+}
+.delivery-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.delivery-question { width: 100%; }
+.delivery-blocked { padding: 1.2em 1.2em 1.2em; }
+@keyframes delivery-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.delivery-question {
+  font-family: var(--display);
+  font-size: 1.05em;
+  margin: 0.2em 0 0;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .merch-delivery-btn { font-size: 0.8em; }
+}
+
 .store-meta {
   font-family: var(--mono);
   font-size: 0.85em;
@@ -1416,6 +1508,13 @@ body.green-mode {
   margin: 1.2em auto 0.4em;
   display: flex;
   justify-content: center;
+}
+.chat-thinking-counter {
+  display: block;
+  margin-top: 0.4em;
+  font-size: 0.78em;
+  font-style: italic;
+  color: color-mix(in oklab, var(--ink) 45%, var(--paper));
 }
 
 .chat-prompt {

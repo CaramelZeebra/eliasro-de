@@ -20,6 +20,7 @@ interface DocumentSiteProps {
   layout?: Layout;
   onReturn?: () => void;
   posts?: BlogPost[];
+  streetview?: string[];
   account?: Account;
 }
 
@@ -30,6 +31,11 @@ const usePosts = () => useContext(PostsContext);
 
 const AccountContext = createContext<Account | null>(null);
 const useAccountCtx = () => useContext(AccountContext);
+
+// Local images discovered in public/streetview/ at build time. Falls back
+// to Picsum placeholders inside PageMerch when this is empty.
+const StreetViewContext = createContext<string[]>([]);
+const useStreetView = () => useContext(StreetViewContext);
 
 // Inline HTML helper — content fields in site.ts are HTML strings.
 const Html = ({ as: Tag = 'span', html, ...rest }: { as?: keyof JSX.IntrinsicElements; html: string } & Record<string, unknown>) => (
@@ -42,6 +48,7 @@ export default function DocumentSite({
   layout = 'single',
   onReturn,
   posts = [],
+  streetview = [],
   account,
 }: DocumentSiteProps) {
   const [current, setCurrent] = useState(0);
@@ -157,6 +164,7 @@ export default function DocumentSite({
   return (
     <AccountContext.Provider value={account ?? null}>
     <PostsContext.Provider value={posts}>
+    <StreetViewContext.Provider value={streetview}>
     <div
       className={`doc-site doc-style-${docStyle} doc-layout-${layout}`}
       onTouchStart={onTouchStart}
@@ -253,6 +261,7 @@ export default function DocumentSite({
         </button>
       )}
     </div>
+    </StreetViewContext.Provider>
     </PostsContext.Provider>
     </AccountContext.Provider>
   );
@@ -616,8 +625,130 @@ interface StaticItem {
   disabled?: boolean;
 }
 
+// Picsum placeholder set used when no local /streetview/ files exist.
+const PICSUM_FALLBACK = Array.from({ length: 14 }, (_, i) =>
+  `https://picsum.photos/seed/streetview-${i + 1}/720/720`,
+);
+
+function DeliveryModal({
+  images, initialIdx, blocked, onSave, onClose, onBlock,
+}: {
+  images: string[];
+  initialIdx: number;
+  blocked: boolean;
+  onSave: (img: string) => void;
+  onClose: () => void;
+  onBlock: () => void;
+}) {
+  const [idx, setIdx] = useState(initialIdx);
+  // Track which images the user has now viewed in this modal session.
+  const [seen, setSeen] = useState<Set<string>>(() => new Set([images[initialIdx]]));
+  // Local mirror of the persisted block; flips true the moment the user has
+  // toured every image (or starts true if already blocked from before).
+  const [localBlocked, setLocalBlocked] = useState(blocked);
+
+  if (images.length === 0) return null;
+
+  // Pick an image the user hasn't seen yet. Returns -1 when nothing is left.
+  const pickUnseenIdx = (): number => {
+    const unseen = images
+      .map((_, i) => i)
+      .filter((i) => !seen.has(images[i]));
+    if (unseen.length === 0) return -1;
+    return unseen[Math.floor(Math.random() * unseen.length)];
+  };
+
+  const showAnother = () => {
+    if (localBlocked) return;
+    const next = pickUnseenIdx();
+    if (next === -1) {
+      // The user has now seen every image; clicking again triggers the block.
+      setLocalBlocked(true);
+      onBlock();
+      return;
+    }
+    setIdx(next);
+    setSeen((prev) => {
+      const s = new Set(prev);
+      s.add(images[next]);
+      return s;
+    });
+  };
+
+  return (
+    <div className="account-modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="account-modal delivery-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <header className="account-modal-head">
+          <h2 className="account-modal-title">Delivery address</h2>
+          <button
+            type="button"
+            className="account-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >×</button>
+        </header>
+        {localBlocked ? (
+          <div className="delivery-body delivery-blocked">
+            <div className="account-error">
+              ✗ Suspicious activity detected. You can no longer receive
+              deliveries on this account.
+            </div>
+            <div className="account-actions">
+              <button
+                type="button"
+                className="account-link"
+                onClick={onClose}
+              >
+                close
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="delivery-body">
+            <div className="delivery-image-wrap">
+              <img
+                key={idx}
+                className="delivery-image"
+                src={images[idx]}
+                alt=""
+                loading="eager"
+              />
+            </div>
+            <p className="delivery-question">Do you live here?</p>
+            <div className="account-actions">
+              <button
+                type="button"
+                className="account-submit"
+                onClick={() => onSave(images[idx])}
+              >
+                Yes, this is home
+              </button>
+              <button
+                type="button"
+                className="account-link"
+                onClick={showAnother}
+              >
+                show me another
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PageMerch() {
   const account = useAccountCtx();
+  const localStreetview = useStreetView();
+  // Prefer captured local files; fall back to Picsum if none yet.
+  const streetviewImages = localStreetview.length > 0 ? localStreetview : PICSUM_FALLBACK;
+  const [showDelivery, setShowDelivery] = useState(false);
 
   if (!account || !account.username) {
     return (
@@ -749,7 +880,27 @@ function PageMerch() {
 
   return (
     <>
-      <Section num="M" title="Merch store" />
+      <div className="merch-header-row">
+        <Section num="M" title="Merch store" />
+        <button
+          type="button"
+          className="merch-delivery-btn"
+          onClick={() => setShowDelivery(true)}
+        >
+          {account.deliveryAddress ? (
+            <>
+              <img
+                className="merch-delivery-thumb"
+                src={account.deliveryAddress}
+                alt=""
+              />
+              <span>change delivery address</span>
+            </>
+          ) : (
+            <span>set delivery address</span>
+          )}
+        </button>
+      </div>
       <div className="latex-body">
         Items below are paid for in <strong>Elias Points</strong>. Purchases
         are permanent, non&#8209;transferable, and bound to your current
@@ -787,6 +938,21 @@ function PageMerch() {
           → speak with the customer assistant
         </button>
       </div>
+
+      {showDelivery && (
+        <DeliveryModal
+          images={streetviewImages}
+          initialIdx={Math.floor(Math.random() * streetviewImages.length)}
+          blocked={account.deliveryBlocked}
+          onSave={(img) => {
+            if (account.deliveryBlocked) return;
+            account.setDeliveryAddress(img);
+            setShowDelivery(false);
+          }}
+          onClose={() => setShowDelivery(false)}
+          onBlock={() => account.setDeliveryBlocked(true)}
+        />
+      )}
     </>
   );
 }
@@ -794,7 +960,7 @@ function PageMerch() {
 // ─────────────────────── §C Chat (joke chatbot) ───────────────────────
 //
 // Hidden page reachable only from PageMerch's footer link. The bot
-// "thinks" for 60s on every question and then declares "Out of Usage",
+// "thinks" for 30s on every question and then declares "Out of Usage",
 // offering an upgrade prompt. Buying Pro shows a debit-card form which
 // stalls 15s and reports failure. If the typed card number passes Luhn,
 // a small toast warns the user against entering real card details on
@@ -841,6 +1007,7 @@ function PageChat() {
   ]);
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState<ChatPhase>('idle');
+  const [thinkingSeconds, setThinkingSeconds] = useState(0);
   const [showLuhnTip, setShowLuhnTip] = useState(false);
   const luhnTipFiredRef = useRef(false);
 
@@ -851,6 +1018,7 @@ function PageChat() {
   const [cardCvv, setCardCvv] = useState('');
 
   const thinkTimer = useRef<number | null>(null);
+  const thinkInterval = useRef<number | null>(null);
   const txTimer = useRef<number | null>(null);
   const tipTimer = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -859,6 +1027,7 @@ function PageChat() {
   useEffect(() => {
     return () => {
       if (thinkTimer.current) window.clearTimeout(thinkTimer.current);
+      if (thinkInterval.current) window.clearInterval(thinkInterval.current);
       if (txTimer.current) window.clearTimeout(txTimer.current);
       if (tipTimer.current) window.clearTimeout(tipTimer.current);
     };
@@ -880,13 +1049,18 @@ function PageChat() {
       { from: 'bot', text: 'Thinking…' },
     ]);
     setPhase('thinking');
+    setThinkingSeconds(0);
+    thinkInterval.current = window.setInterval(() => {
+      setThinkingSeconds((s) => s + 1);
+    }, 1000);
     thinkTimer.current = window.setTimeout(() => {
+      if (thinkInterval.current) window.clearInterval(thinkInterval.current);
       setMessages((m) => [
         ...m.slice(0, -1),
         { from: 'bot', text: 'Out of Usage.' },
       ]);
       setPhase('out-of-usage');
-    }, 60_000);
+    }, 30_000);
   };
 
   const onBuyPro = () => setPhase('buying');
@@ -948,9 +1122,18 @@ function PageChat() {
               }`}
             >
               {m.text === 'Thinking…' ? (
-                <span className="chat-thinking">
-                  <span></span><span></span><span></span>
-                </span>
+                <>
+                  <span className="chat-thinking">
+                    <span></span><span></span><span></span>
+                  </span>
+                  {phase === 'thinking' && (
+                    <span className="chat-thinking-counter">
+                      {thinkingSeconds < 23
+                        ? `Thinking for ${thinkingSeconds} second${thinkingSeconds === 1 ? '' : 's'}...`
+                        : 'Almost done thinking...'}
+                    </span>
+                  )}
+                </>
               ) : (
                 m.text
               )}

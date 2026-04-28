@@ -184,8 +184,7 @@ export const site = {
 
   // ────────────────────────── §7 cv ───────────────────────────────────
   cv: {
-    intro:
-      'An abridged record. A complete .pdf is filed at <a class="latex-link" href="/cv.pdf">/cv.pdf</a>.',
+    intro: 'An abridged record.',
     education: {
       num: '7.1',
       title: 'Education',
@@ -285,11 +284,10 @@ export const site = {
   contact: {
     intro: 'The author may be reached, in order of personal preference, by:',
     items: [
-      { key: 'e&#8209;mail',  value: '<a class="latex-link" href="mailto:elias.rode@gmail.com">elias.rode@gmail.com</a>' },
-      { key: 'e&#8209;mail',  value: '<a class="latex-link" href="mailto:rodee@tcd.ie">rodee@tcd.ie</a>' },
-      { key: 'telephone', value: '<a class="latex-link" href="tel:+353851004364">+353 85 100 4364</a>', mono: true },
-      { key: 'github',        value: '<a class="latex-link" href="https://github.com/CaramelZeebra" target="_blank" rel="noopener">github.com/CaramelZeebra</a>' },
-      { key: 'linkedin',      value: '<a class="latex-link" href="https://www.linkedin.com/in/elias-rode-37a95a404/" target="_blank" rel="noopener">linkedin.com/in/elias-rode</a>' },
+      { key: 'e&#8209;mail', value: '<a class="latex-link" href="mailto:elias.rode@gmail.com">elias.rode@gmail.com</a>' },
+      { key: 'e&#8209;mail', value: '<a class="latex-link" href="mailto:rodee@tcd.ie">rodee@tcd.ie</a>' },
+      { key: 'github',       value: '<a class="latex-link" href="https://github.com/CaramelZeebra" target="_blank" rel="noopener">github.com/CaramelZeebra</a>' },
+      { key: 'linkedin',     value: '<a class="latex-link" href="https://www.linkedin.com/in/elias-rode-37a95a404/" target="_blank" rel="noopener">linkedin.com/in/elias-rode</a>' },
     ],
     mailingList: {
       num: '10.1',

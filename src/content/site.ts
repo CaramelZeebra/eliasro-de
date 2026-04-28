@@ -27,8 +27,10 @@ export const site = {
     { id: 'blog',    num: '8',  label: 'Blog' },
     { id: 'links',   num: '9',  label: 'Links' },
     { id: 'contact', num: '10', label: 'Contact' },
-    // Hidden from TOC + Contents; navigated to from the account menu.
+    // Hidden from TOC + Contents; navigated to from the account menu (merch)
+    // and from the merch store itself (chat).
     { id: 'merch',   num: 'M',  label: 'Store' },
+    { id: 'chat',    num: 'C',  label: 'Chat' },
   ] as const,
 
   // ────────────────────────── §1 about ────────────────────────────────

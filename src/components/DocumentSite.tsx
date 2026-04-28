@@ -11,6 +11,10 @@ type FlipDir = 'next' | 'prev' | null;
 const PAGES = site.pages;
 type PageId = (typeof PAGES)[number]['id'];
 
+// Pages reachable only via in-app actions (account menu, store link),
+// hidden from TOC, Contents, and natural-flow nav (arrow keys, swipe…).
+const HIDDEN_IDS = new Set<string>(['merch', 'chat']);
+
 interface DocumentSiteProps {
   docStyle?: DocStyle;
   layout?: Layout;
@@ -81,26 +85,23 @@ export default function DocumentSite({
     setFlipping(null);
   };
 
-  // The merch page is reachable only from the account menu — it's filtered
-  // out of the TOC, the Contents list, and from natural-flow navigation
-  // (arrow keys, swipe, side buttons). Pressing prev / ← from merch jumps
-  // back to the last visible page (Correspondence); next / → is a no-op.
+  // (See HIDDEN_IDS at module scope.)
   const visibleIndices = PAGES.map((_, i) => i).filter(
-    (i) => PAGES[i].id !== 'merch',
+    (i) => !HIDDEN_IDS.has(PAGES[i].id),
   );
   const lastVisibleIdx = visibleIndices[visibleIndices.length - 1];
-  const isMerch = (i: number) => PAGES[i]?.id === 'merch';
+  const isHidden = (i: number) => HIDDEN_IDS.has(PAGES[i]?.id);
 
   const next = () => {
     const baseline = flipping ? target : current;
-    if (isMerch(baseline)) return;
+    if (isHidden(baseline)) return;
     const pos = visibleIndices.indexOf(baseline);
     const nxt = visibleIndices[pos + 1];
     if (nxt !== undefined) goto(nxt);
   };
   const prev = () => {
     const baseline = flipping ? target : current;
-    if (isMerch(baseline)) {
+    if (isHidden(baseline)) {
       goto(lastVisibleIdx);
       return;
     }
@@ -171,7 +172,7 @@ export default function DocumentSite({
       <button
         className="doc-side-btn doc-side-next"
         onClick={next}
-        disabled={!flipping && (isMerch(current) || current === lastVisibleIdx)}
+        disabled={!flipping && (isHidden(current) || current === lastVisibleIdx)}
         aria-label="Next page"
         type="button"
       >&rarr;</button>
@@ -223,7 +224,7 @@ export default function DocumentSite({
             arrows still fire prev/next which know to handle merch correctly. */}
         <ol className="doc-toc">
           {PAGES.map((p, i) =>
-            p.id === 'merch' ? null : (
+            HIDDEN_IDS.has(p.id) ? null : (
               <li key={p.id}>
                 <button
                   className={`doc-toc-item ${i === current ? 'is-current' : ''}`}
@@ -239,7 +240,7 @@ export default function DocumentSite({
         <button
           className="doc-nav-arrow"
           onClick={next}
-          disabled={isMerch(current) || current === lastVisibleIdx}
+          disabled={isHidden(current) || current === lastVisibleIdx}
           aria-label="Next page"
         >
           &rarr;
@@ -279,6 +280,7 @@ function PageContents({
         {page.id === 'links' && <PageLinks />}
         {page.id === 'contact' && <PageContact />}
         {page.id === 'merch' && <PageMerch />}
+        {page.id === 'chat' && <PageChat />}
       </div>
       <div className="latex-foot">
         <div>{page.num}</div>
@@ -313,7 +315,7 @@ function PageTitle({ onGoto }: { onGoto?: (i: number) => void }) {
       <div className="latex-toc-head">Contents</div>
       <ol className="latex-toc">
         {site.pages.map((p, idx) =>
-          p.id === 'title' || p.id === 'merch' ? null : (
+          p.id === 'title' || HIDDEN_IDS.has(p.id) ? null : (
             <li key={p.id}>
               <button
                 className="latex-toc-link"
@@ -772,6 +774,383 @@ function PageMerch() {
         {items.map(renderTile)}
         {fibItems.map(renderTile)}
       </div>
+      <div className="store-footer">
+        <button
+          type="button"
+          className="store-footer-link"
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent('eliasro:navigate', { detail: 'chat' }),
+            )
+          }
+        >
+          → speak with the customer assistant
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────── §C Chat (joke chatbot) ───────────────────────
+//
+// Hidden page reachable only from PageMerch's footer link. The bot
+// "thinks" for 60s on every question and then declares "Out of Usage",
+// offering an upgrade prompt. Buying Pro shows a debit-card form which
+// stalls 15s and reports failure. If the typed card number passes Luhn,
+// a small toast warns the user against entering real card details on
+// random websites.
+
+type ChatPhase =
+  | 'idle'
+  | 'thinking'
+  | 'out-of-usage'
+  | 'buying'
+  | 'transaction-pending'
+  | 'transaction-failed';
+
+interface ChatMessage {
+  from: 'bot' | 'user';
+  text: string;
+}
+
+function luhnValid(num: string): boolean {
+  const digits = num.replace(/\D/g, '');
+  if (digits.length < 12 || digits.length > 19) return false;
+  let sum = 0;
+  let alt = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let n = parseInt(digits[i], 10);
+    if (alt) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+
+function formatCardNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 19);
+  return digits.replace(/(.{4})/g, '$1 ').trim();
+}
+
+function PageChat() {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { from: 'bot', text: 'Welcome to the Customer Assistant. How may I help you today?' },
+  ]);
+  const [input, setInput] = useState('');
+  const [phase, setPhase] = useState<ChatPhase>('idle');
+  const [showLuhnTip, setShowLuhnTip] = useState(false);
+  const luhnTipFiredRef = useRef(false);
+
+  // Card form state
+  const [cardName, setCardName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+
+  const thinkTimer = useRef<number | null>(null);
+  const txTimer = useRef<number | null>(null);
+  const tipTimer = useRef<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Cleanup all running timers on unmount.
+  useEffect(() => {
+    return () => {
+      if (thinkTimer.current) window.clearTimeout(thinkTimer.current);
+      if (txTimer.current) window.clearTimeout(txTimer.current);
+      if (tipTimer.current) window.clearTimeout(tipTimer.current);
+    };
+  }, []);
+
+  // Auto-scroll to the latest message whenever the list grows.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, phase]);
+
+  const submitMsg = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (phase !== 'idle' || !input.trim()) return;
+    const q = input.trim();
+    setInput('');
+    setMessages((m) => [
+      ...m,
+      { from: 'user', text: q },
+      { from: 'bot', text: 'Thinking…' },
+    ]);
+    setPhase('thinking');
+    thinkTimer.current = window.setTimeout(() => {
+      setMessages((m) => [
+        ...m.slice(0, -1),
+        { from: 'bot', text: 'Out of Usage.' },
+      ]);
+      setPhase('out-of-usage');
+    }, 60_000);
+  };
+
+  const onBuyPro = () => setPhase('buying');
+  const onWait = () => {
+    setMessages((m) => [
+      ...m,
+      {
+        from: 'bot',
+        text: 'Free-tier usage will resume in approximately 4 hours. Please return then.',
+      },
+    ]);
+    setPhase('idle');
+  };
+
+  const onCardNumberChange = (raw: string) => {
+    const formatted = formatCardNumber(raw);
+    setCardNumber(formatted);
+    if (!luhnTipFiredRef.current && luhnValid(formatted)) {
+      luhnTipFiredRef.current = true;
+      setShowLuhnTip(true);
+      tipTimer.current = window.setTimeout(() => setShowLuhnTip(false), 5000);
+    }
+  };
+
+  const submitCard = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (phase !== 'buying') return;
+    setPhase('transaction-pending');
+    txTimer.current = window.setTimeout(() => {
+      setPhase('transaction-failed');
+    }, 15_000);
+  };
+
+  const closeBuyModal = () => {
+    // Locked while a transaction is "processing" — clicking the backdrop or
+    // close × during the 15s wait would otherwise silently cancel the
+    // failure prompt.
+    if (phase === 'transaction-pending') return;
+    if (phase === 'buying' || phase === 'transaction-failed') {
+      if (txTimer.current) window.clearTimeout(txTimer.current);
+      setCardName(''); setCardNumber(''); setCardExpiry(''); setCardCvv('');
+      setPhase('out-of-usage');
+    }
+  };
+
+  const buyModalOpen =
+    phase === 'buying' || phase === 'transaction-pending' || phase === 'transaction-failed';
+
+  return (
+    <>
+      <Section num="C" title="Customer Assistant" />
+      <div className="chatbot">
+        <div className="chat-window">
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={`chat-msg ${m.from === 'bot' ? 'is-bot' : 'is-user'} ${
+                m.text === 'Thinking…' ? 'is-thinking' : ''
+              }`}
+            >
+              {m.text === 'Thinking…' ? (
+                <span className="chat-thinking">
+                  <span></span><span></span><span></span>
+                </span>
+              ) : (
+                m.text
+              )}
+            </div>
+          ))}
+          {phase === 'out-of-usage' && (
+            <div className="chat-prompt">
+              <button
+                type="button"
+                className="chat-prompt-btn is-primary"
+                onClick={onBuyPro}
+              >
+                Buy Pro
+              </button>
+              <button
+                type="button"
+                className="chat-prompt-btn"
+                onClick={onWait}
+              >
+                Wait 4 hours
+              </button>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+        <form className="chat-input" onSubmit={submitMsg}>
+          <input
+            className="chat-input-field"
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={
+              phase === 'thinking'
+                ? 'Thinking…'
+                : phase === 'out-of-usage'
+                ? 'Out of Usage'
+                : 'Type a question…'
+            }
+            disabled={phase !== 'idle'}
+          />
+          <button
+            type="submit"
+            className="chat-input-send"
+            disabled={phase !== 'idle' || !input.trim()}
+          >
+            Send
+          </button>
+        </form>
+      </div>
+
+      {buyModalOpen && (
+        <div
+          className="account-modal-backdrop"
+          onClick={closeBuyModal}
+          role="presentation"
+        >
+          <div
+            className="account-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <header className="account-modal-head">
+              <h2 className="account-modal-title">Upgrade to Pro</h2>
+              <button
+                type="button"
+                className="account-modal-close"
+                onClick={closeBuyModal}
+                disabled={phase === 'transaction-pending'}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </header>
+            {phase === 'buying' && (
+              <form className="account-form" onSubmit={submitCard} autoComplete="off">
+                <p className="account-prompt-body">
+                  Enter your debit card details to continue. Your card will be
+                  charged €19.99 today and renewed monthly until cancelled.
+                </p>
+                <label className="account-field">
+                  <span className="account-field-label">Cardholder name</span>
+                  <input
+                    className="account-input"
+                    value={cardName}
+                    onChange={(e) => setCardName(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="account-field">
+                  <span className="account-field-label">Card number</span>
+                  <input
+                    className="account-input"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={cardNumber}
+                    onChange={(e) => onCardNumberChange(e.target.value)}
+                    placeholder="0000 0000 0000 0000"
+                    required
+                  />
+                </label>
+                <div className="chat-card-row">
+                  <label className="account-field">
+                    <span className="account-field-label">Expiry</span>
+                    <input
+                      className="account-input"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={cardExpiry}
+                      onChange={(e) => {
+                        const d = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setCardExpiry(d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d);
+                      }}
+                      placeholder="MM/YY"
+                      required
+                    />
+                  </label>
+                  <label className="account-field">
+                    <span className="account-field-label">CVV</span>
+                    <input
+                      className="account-input"
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={cardCvv}
+                      onChange={(e) =>
+                        setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 4))
+                      }
+                      placeholder="•••"
+                      required
+                    />
+                  </label>
+                </div>
+                <div className="account-actions">
+                  <button type="submit" className="account-submit">
+                    Pay €19.99
+                  </button>
+                  <button
+                    type="button"
+                    className="account-link"
+                    onClick={closeBuyModal}
+                  >
+                    cancel
+                  </button>
+                </div>
+              </form>
+            )}
+            {phase === 'transaction-pending' && (
+              <div className="account-form">
+                <p className="account-prompt-body">
+                  Processing your payment…
+                </p>
+                <div className="chat-thinking chat-thinking-modal">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
+            )}
+            {phase === 'transaction-failed' && (
+              <div className="account-form">
+                <div className="account-error">
+                  ✗ Transaction failed. Please verify your details and try again.
+                </div>
+                <div className="account-actions">
+                  <button
+                    type="button"
+                    className="account-submit"
+                    onClick={() => setPhase('buying')}
+                  >
+                    Try again
+                  </button>
+                  <button
+                    type="button"
+                    className="account-link"
+                    onClick={closeBuyModal}
+                  >
+                    close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showLuhnTip && (
+        <div className="luhn-tip" role="status" aria-live="polite">
+          <button
+            type="button"
+            className="luhn-tip-close"
+            aria-label="Dismiss"
+            onClick={() => setShowLuhnTip(false)}
+          >
+            ×
+          </button>
+          <strong>Tip: </strong>
+          the author does not encourage sharing your actual card details with
+          random websites.
+        </div>
+      )}
     </>
   );
 }

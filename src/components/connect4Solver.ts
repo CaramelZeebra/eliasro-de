@@ -13,6 +13,8 @@
 // sentinel).  49 bits total → low half holds bits 0-31, high half bits
 // 32-48 (kept in the low 17 bits of the `Hi` Number).
 
+import { OPENING_BOOK } from './connect4OpeningBook';
+
 const WIDTH = 7;
 const HEIGHT = 6;
 const H1 = HEIGHT + 1; // 7
@@ -444,7 +446,7 @@ function leafEval(p: Position): number {
   return Math.max(-18, Math.min(18, score));
 }
 
-interface TTEntry { value: number; flag: 0 | 1 | 2; depth: number; }
+export interface TTEntry { value: number; flag: 0 | 1 | 2; depth: number; }
 class TimeBudgetExceeded extends Error { constructor() { super('time-budget'); } }
 
 export interface SolveResult {
@@ -459,7 +461,16 @@ const TT_MAX = 400_000;
 export function solve(
   position: Position,
   budgetMs = DEFAULT_BUDGET_MS,
+  sharedTT?: Map<number, TTEntry>,
 ): SolveResult {
+  // Opening-book lookup — bypasses the search entirely for the first
+  // few plies, where each call would otherwise burn the entire budget
+  // on positions whose best moves are well-known.
+  const booked = OPENING_BOOK.get(position.key());
+  if (booked && position.canPlay(booked.col)) {
+    return { col: booked.col, score: booked.score, exhaustive: booked.exhaustive };
+  }
+
   const deadline = performance.now() + budgetMs;
 
   for (const c of COLUMN_ORDER) {
@@ -491,7 +502,7 @@ export function solve(
   }
   candidates.sort((a, b) => b.score - a.score);
 
-  const tt = new Map<number, TTEntry>();
+  const tt = sharedTT ?? new Map<number, TTEntry>();
 
   function negamax(p: Position, alpha: number, beta: number, depth: number): number {
     if (performance.now() > deadline) throw new TimeBudgetExceeded();

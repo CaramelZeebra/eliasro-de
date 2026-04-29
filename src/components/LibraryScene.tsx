@@ -38,12 +38,14 @@ interface Palette {
 interface LibraryProps {
   vibe?: Vibe;
   onPaperEnter?: () => void;
+  onConnect4Click?: () => void;
   progress?: number;
 }
 
 export default function LibraryScene({
   vibe = 'study',
   onPaperEnter,
+  onConnect4Click,
   progress = 0,
 }: LibraryProps) {
   const palette = scenePalette(vibe);
@@ -100,7 +102,7 @@ export default function LibraryScene({
 
         <FrameCluster />
 
-        <Desk onPaperEnter={onPaperEnter} />
+        <Desk onPaperEnter={onPaperEnter} onConnect4Click={onConnect4Click} />
       </div>
 
       <div className="lib-vignette" />
@@ -249,7 +251,13 @@ function FrameCluster() {
   );
 }
 
-function Desk({ onPaperEnter }: { onPaperEnter?: () => void }) {
+function Desk({
+  onPaperEnter,
+  onConnect4Click,
+}: {
+  onPaperEnter?: () => void;
+  onConnect4Click?: () => void;
+}) {
   return (
     <div className="lib-desk">
       <div className="lib-desk-back-edge" />
@@ -260,6 +268,20 @@ function Desk({ onPaperEnter }: { onPaperEnter?: () => void }) {
           <div className="lib-ink-body" />
           <div className="lib-ink-top" />
         </div>
+
+        <button
+          type="button"
+          className="lib-connect4"
+          onClick={onConnect4Click}
+          aria-label="Open Connect Four"
+        >
+          <img
+            src="/library/connect4.png"
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
+        </button>
 
         <div className="lib-paper" id="paper-target" onMouseEnter={onPaperEnter}>
           <PaperContents />

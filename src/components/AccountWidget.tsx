@@ -226,14 +226,9 @@ function ModalShell({
   }, [onCancel]);
 
   return (
-    <div
-      className="account-modal-backdrop"
-      onClick={onCancel}
-      role="presentation"
-    >
+    <div className="account-modal-backdrop" role="presentation">
       <div
         className="account-modal"
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import LibraryScene from './LibraryScene';
 import DocumentSite from './DocumentSite';
 import AccountWidget from './AccountWidget';
+import Connect4 from './Connect4';
 import { useAccount } from './useAccount';
 
 // Canonical configuration. The handoff prototype exposed these as a Tweaks
@@ -120,11 +121,14 @@ const initialStage = (): Stage =>
 interface AppProps {
   posts?: BlogPost[];
   streetview?: string[];
+  /** ISO-ish minute-precision build timestamp, set in index.astro. */
+  buildTime?: string;
 }
 
-export default function App({ posts = [], streetview = [] }: AppProps) {
+export default function App({ posts = [], streetview = [], buildTime }: AppProps) {
   const [stage, setStage] = useState<Stage>(initialStage);
   const [progress, setProgress] = useState(0);
+  const [connect4Open, setConnect4Open] = useState(false);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const account = useAccount();
 
@@ -184,8 +188,17 @@ export default function App({ posts = [], streetview = [] }: AppProps) {
             <LibraryScene
               vibe={CONFIG.vibe}
               onPaperEnter={onPaperEnter}
+              onConnect4Click={() => setConnect4Open(true)}
               progress={t}
             />
+          </div>
+        )}
+
+        {connect4Open && <Connect4 onClose={() => setConnect4Open(false)} />}
+
+        {stage === 'document' && buildTime && (
+          <div className="compiled-note" aria-hidden="true">
+            compiled {buildTime}
           </div>
         )}
 

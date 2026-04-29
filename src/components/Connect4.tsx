@@ -6,7 +6,6 @@ import {
   useState,
 } from 'react';
 import SolverWorker from './connect4Solver.worker?worker';
-import { Position, rankMoves } from './connect4Solver';
 
 // Connect 4 — 7 × 6 grid, two-player or vs CPU.  Board geometry constants
 // (column / row centres, hole size) come from the design handoff and must
@@ -88,7 +87,7 @@ function scoreToFill(redScore: number): number {
 // are skipped so the metric reflects positions where they actually
 // chose between meaningfully different options.
 function avgPct(
-  moves: { p: 1 | 2; q: { quality: number; weight: number } | null }[],
+  moves: { id?: number; p: 1 | 2; q: { quality: number; weight: number } | null }[],
   player: 1 | 2,
 ): number | null {
   let sumQW = 0;
@@ -135,15 +134,21 @@ export default function Connect4({ onClose }: Connect4Props) {
   } | null>(null);
   const [moves, setMoves] = useState<
     {
+      // Stable id so async rank-worker results can find their entry
+      // even if the user makes more moves while the previous ranking
+      // is still computing.
+      id: number;
       p: Player;
       c: number;
       r: number;
       // Per-move quality used by the shots-on-target average.  null
       // when the position offered no real choice (every legal column
       // tied) — those moves don't contribute to the average at all.
+      // Stays `pending` (= null) until the rank-worker fills it in.
       q: { quality: number; weight: number } | null;
     }[]
   >([]);
+  const moveIdRef = useRef(0);
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null);
   const [draw, setDraw] = useState(false);
   const [score, setScore] = useState<{ 1: number; 2: number }>({ 1: 0, 2: 0 });
@@ -177,45 +182,59 @@ export default function Connect4({ onClose }: Connect4Props) {
       const nb = board.map((row) => row.slice()) as Cell[][];
       nb[r][col] = turn;
 
-      // Rate the move synchronously: depth-5 negamax over each candidate
-      // column, then express how close the played move was to the best
-      // available — linear in score units rather than coarse percentile.
+      const moveId = ++moveIdRef.current;
+      const preMoveCells = board;
+      setBoard(nb);
+      setFalling({ id: Date.now() + Math.random(), r, c: col, player: turn });
+      setMoves((m) => [...m, { id: moveId, p: turn, c: col, r, q: null }]);
+      setLocked(true);
+
+      // Rate the move asynchronously in a Web Worker so the click→drop
+      // animation paints immediately and the ~100ms iterative-deepening
+      // ranking can run in parallel.  Each candidate column is solved
+      // with a small per-candidate budget (sharing one TT across all
+      // candidates so overlapping subtrees don't get re-searched).
       //
       // Quality:  (played − worst) / (best − worst) ∈ [0, 1].
       // Weight:   min(1, (best − worst) / 30) — the score gap proxies
       //           how much choice the position offered.  Decisive
-      //           positions (gap → 30+) count fully; close calls
-      //           contribute proportionally less so they neither lift
-      //           nor crater the average.
+      //           positions count fully; close calls contribute
+      //           proportionally less so they neither lift nor crater
+      //           the average.
       //
       // Stays null when every legal column scored identically — those
-      // positions don't reflect any real decision, so they're skipped
-      // entirely (a forced-best column shouldn't tick the average up to
-      // 100% any more than a forced-bad column should drag it to 0%).
-      let q: { quality: number; weight: number } | null = null;
-      const ranked = rankMoves(Position.fromCells(board, player), 5);
-      if (ranked.length > 1) {
+      // positions don't reflect any real decision, so they're skipped.
+      const rankWorker = new SolverWorker();
+      rankWorker.onmessage = (
+        e: MessageEvent<{ op: 'rank'; ranked: { col: number; score: number }[] }>,
+      ) => {
+        rankWorker.terminate();
+        if (e.data.op !== 'rank') return;
+        const ranked = e.data.ranked;
+        if (ranked.length <= 1) return;
         let bestS = -Infinity;
         let worstS = Infinity;
         for (const m of ranked) {
           if (m.score > bestS) bestS = m.score;
           if (m.score < worstS) worstS = m.score;
         }
-        if (bestS > worstS) {
-          const played = ranked.find((m) => m.col === col);
-          if (played) {
-            q = {
-              quality: (played.score - worstS) / (bestS - worstS),
-              weight: Math.min(1, (bestS - worstS) / 30),
-            };
-          }
-        }
-      }
-
-      setBoard(nb);
-      setFalling({ id: Date.now() + Math.random(), r, c: col, player: turn });
-      setMoves((m) => [...m, { p: turn, c: col, r, q }]);
-      setLocked(true);
+        if (bestS <= worstS) return;
+        const played = ranked.find((m) => m.col === col);
+        if (!played) return;
+        const q = {
+          quality: (played.score - worstS) / (bestS - worstS),
+          weight: Math.min(1, (bestS - worstS) / 30),
+        };
+        setMoves((prev) =>
+          prev.map((m) => (m.id === moveId ? { ...m, q } : m)),
+        );
+      };
+      rankWorker.postMessage({
+        op: 'rank',
+        cells: preMoveCells,
+        turn: player,
+        budgetMs: 200,
+      });
 
       const animMs = (0.4 + (r + 2) * 0.05) * 1000 + 60;
       window.setTimeout(() => {

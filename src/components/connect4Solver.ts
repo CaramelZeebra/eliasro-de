@@ -444,7 +444,7 @@ function leafEval(p: Position): number {
   return Math.max(-18, Math.min(18, score));
 }
 
-interface TTEntry { value: number; flag: 0 | 1 | 2; depth: number; }
+export interface TTEntry { value: number; flag: 0 | 1 | 2; depth: number; }
 class TimeBudgetExceeded extends Error { constructor() { super('time-budget'); } }
 
 export interface SolveResult {
@@ -456,7 +456,11 @@ export interface SolveResult {
 const DEFAULT_BUDGET_MS = 2200;
 const TT_MAX = 400_000;
 
-export function solve(position: Position, budgetMs = DEFAULT_BUDGET_MS): SolveResult {
+export function solve(
+  position: Position,
+  budgetMs = DEFAULT_BUDGET_MS,
+  sharedTT?: Map<number, TTEntry>,
+): SolveResult {
   const deadline = performance.now() + budgetMs;
 
   for (const c of COLUMN_ORDER) {
@@ -488,7 +492,7 @@ export function solve(position: Position, budgetMs = DEFAULT_BUDGET_MS): SolveRe
   }
   candidates.sort((a, b) => b.score - a.score);
 
-  const tt = new Map<number, TTEntry>();
+  const tt = sharedTT ?? new Map<number, TTEntry>();
 
   function negamax(p: Position, alpha: number, beta: number, depth: number): number {
     if (performance.now() > deadline) throw new TimeBudgetExceeded();
@@ -601,48 +605,42 @@ export function solve(position: Position, budgetMs = DEFAULT_BUDGET_MS): SolveRe
   return { col: bestCol, score: bestScore, exhaustive };
 }
 
-// Shallow per-move ranking for the "shots on target" stat.
-export function rankMoves(p: Position, depth = 5): { col: number; score: number }[] {
+// Per-move ranking for the "shots on target" stat.  Uses the same
+// iterative-deepening solver as the eval bar, just with a tight
+// per-candidate budget — keeps the percentile in the same scoring
+// frame as what the bar shows.
+//
+// All candidates share one transposition table so positions reached
+// from multiple candidate subtrees only get searched once.  In the
+// opening especially, candidates' subtrees overlap heavily, so this
+// makes the budget go significantly further than 7 independent runs.
+export function rankMoves(p: Position, budgetMs = 100): { col: number; score: number }[] {
   const out: { col: number; score: number }[] = [];
   const winScore = (TOTAL + 1 - p.moves) >> 1;
-  for (let c = 0; c < WIDTH; c++) {
-    if (!p.canPlay(c)) continue;
+
+  const cols: number[] = [];
+  for (let c = 0; c < WIDTH; c++) if (p.canPlay(c)) cols.push(c);
+  if (cols.length === 0) return out;
+
+  // Spread the budget evenly across legal candidates.  Floor at 8 ms so
+  // each candidate gets a meaningful iterative-deepening run even when
+  // many columns are still open.
+  const per = Math.max(8, Math.floor(budgetMs / cols.length));
+  const sharedTT = new Map<number, TTEntry>();
+
+  for (const c of cols) {
     let score: number;
     if (p.isWinningMove(c)) {
       score = winScore;
     } else {
       const next = p.clone();
       next.play(c);
-      score = -shallowNegamax(next, depth - 1, -100000, 100000);
+      // solve() returns a score from the player-to-move's POV.  After
+      // we've played `c`, the opponent is to move — so negate.
+      const r = solve(next, per, sharedTT);
+      score = -r.score;
     }
     out.push({ col: c, score });
   }
   return out;
-}
-
-function shallowNegamax(p: Position, depth: number, alpha: number, beta: number): number {
-  if (p.moves >= TOTAL) return 0;
-  for (let c = 0; c < WIDTH; c++) {
-    if (p.canPlay(c) && p.isWinningMove(c)) {
-      return (TOTAL + 1 - p.moves) >> 1;
-    }
-  }
-  if (depth <= 0) return leafEval(p);
-  const possible = p.possibleNonLosingMoves();
-  if (possible.lo === 0 && possible.hi === 0) return -((TOTAL - p.moves) >> 1);
-  if (p.moves >= TOTAL - 2) return 0;
-
-  let best = -Infinity;
-  for (const c of COLUMN_ORDER) {
-    const colBitsLo = COLUMN_MASK_LO[c] & possible.lo;
-    const colBitsHi = COLUMN_MASK_HI[c] & possible.hi;
-    if ((colBitsLo | colBitsHi) === 0) continue;
-    const next = p.clone();
-    next.playMoveSplit(colBitsLo, colBitsHi);
-    const s = -shallowNegamax(next, depth - 1, -beta, -alpha);
-    if (s > best) best = s;
-    if (s > alpha) alpha = s;
-    if (alpha >= beta) break;
-  }
-  return best;
 }

@@ -211,6 +211,11 @@ export const site = {
       title: 'Experience',
       rows: [
         {
+          when: '2026 &mdash; 2027',
+          place: 'Trinity College Dublin Mathematical Society — <i>Auditor (Chair)</i>',
+          role: 'Elected to lead the society&rsquo;s executive committee for the academic year.',
+        },
+        {
           when: 'Summer 2026',
           place: 'PwC — <i>Intern</i>',
           role: 'What I get up to remains to be seen.',

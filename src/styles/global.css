@@ -2247,11 +2247,6 @@ body.green-mode {
 }
 .c4-player-coin { width: 36px; height: 36px; }
 .c4-player-meta { line-height: 1.05; }
-.c4-player-name-line {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4em;
-}
 .c4-player-name {
   font-family: var(--display);
   font-size: 1.05em;
@@ -2259,14 +2254,6 @@ body.green-mode {
 }
 .c4-player-name.is-red { color: var(--c4-red); }
 .c4-player-name.is-green { color: var(--c4-green); }
-.c4-player-shot {
-  font-family: var(--mono);
-  font-size: 0.62em;
-  font-style: normal;
-  color: color-mix(in oklab, var(--ink) 38%, var(--paper));
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-}
 .c4-player-role {
   font-family: var(--mono);
   font-size: 0.62em;

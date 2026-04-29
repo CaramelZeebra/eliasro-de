@@ -444,7 +444,7 @@ function leafEval(p: Position): number {
   return Math.max(-18, Math.min(18, score));
 }
 
-export interface TTEntry { value: number; flag: 0 | 1 | 2; depth: number; }
+interface TTEntry { value: number; flag: 0 | 1 | 2; depth: number; }
 class TimeBudgetExceeded extends Error { constructor() { super('time-budget'); } }
 
 export interface SolveResult {
@@ -459,7 +459,6 @@ const TT_MAX = 400_000;
 export function solve(
   position: Position,
   budgetMs = DEFAULT_BUDGET_MS,
-  sharedTT?: Map<number, TTEntry>,
 ): SolveResult {
   const deadline = performance.now() + budgetMs;
 
@@ -492,7 +491,7 @@ export function solve(
   }
   candidates.sort((a, b) => b.score - a.score);
 
-  const tt = sharedTT ?? new Map<number, TTEntry>();
+  const tt = new Map<number, TTEntry>();
 
   function negamax(p: Position, alpha: number, beta: number, depth: number): number {
     if (performance.now() > deadline) throw new TimeBudgetExceeded();
@@ -605,42 +604,3 @@ export function solve(
   return { col: bestCol, score: bestScore, exhaustive };
 }
 
-// Per-move ranking for the "shots on target" stat.  Uses the same
-// iterative-deepening solver as the eval bar, just with a tight
-// per-candidate budget — keeps the percentile in the same scoring
-// frame as what the bar shows.
-//
-// All candidates share one transposition table so positions reached
-// from multiple candidate subtrees only get searched once.  In the
-// opening especially, candidates' subtrees overlap heavily, so this
-// makes the budget go significantly further than 7 independent runs.
-export function rankMoves(p: Position, budgetMs = 100): { col: number; score: number }[] {
-  const out: { col: number; score: number }[] = [];
-  const winScore = (TOTAL + 1 - p.moves) >> 1;
-
-  const cols: number[] = [];
-  for (let c = 0; c < WIDTH; c++) if (p.canPlay(c)) cols.push(c);
-  if (cols.length === 0) return out;
-
-  // Spread the budget evenly across legal candidates.  Floor at 8 ms so
-  // each candidate gets a meaningful iterative-deepening run even when
-  // many columns are still open.
-  const per = Math.max(8, Math.floor(budgetMs / cols.length));
-  const sharedTT = new Map<number, TTEntry>();
-
-  for (const c of cols) {
-    let score: number;
-    if (p.isWinningMove(c)) {
-      score = winScore;
-    } else {
-      const next = p.clone();
-      next.play(c);
-      // solve() returns a score from the player-to-move's POV.  After
-      // we've played `c`, the opponent is to move — so negate.
-      const r = solve(next, per, sharedTT);
-      score = -r.score;
-    }
-    out.push({ col: c, score });
-  }
-  return out;
-}

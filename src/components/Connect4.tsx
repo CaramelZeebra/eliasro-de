@@ -81,26 +81,6 @@ function scoreToFill(redScore: number): number {
   return 0.5 + 0.45 * Math.tanh(redScore / 6);
 }
 
-// Weighted average of per-move quality (each move contributes
-// `quality × weight`, normalised by total weight).  Returns null when
-// the player has no recorded decisions yet — null pcts (forced moves)
-// are skipped so the metric reflects positions where they actually
-// chose between meaningfully different options.
-function avgPct(
-  moves: { id?: number; p: 1 | 2; q: { quality: number; weight: number } | null }[],
-  player: 1 | 2,
-): number | null {
-  let sumQW = 0;
-  let sumW = 0;
-  for (const m of moves) {
-    if (m.p === player && m.q !== null) {
-      sumQW += m.q.quality * m.q.weight;
-      sumW += m.q.weight;
-    }
-  }
-  return sumW > 0 ? (sumQW / sumW) * 100 : null;
-}
-
 // Subtitle below the bar when the position is provably won/lost/drawn.
 function decisiveLabel(redScore: number, exhaustive: boolean): string | null {
   if (redScore > 100) return 'red wins';
@@ -121,7 +101,6 @@ export default function Connect4({ onClose }: Connect4Props) {
   const [mode, setMode] = useState<Mode>('twoPlayer');
   const [firstPlayer, setFirstPlayer] = useState<FirstPlayer>('red');
   const [showEval, setShowEval] = useState(false);
-  const [showShotsOnTarget, setShowShotsOnTarget] = useState(false);
 
   const [board, setBoard] = useState<Cell[][]>(emptyBoard);
   const [turn, setTurn] = useState<Player>(firstPlayer === 'red' ? 1 : 2);
@@ -133,22 +112,8 @@ export default function Connect4({ onClose }: Connect4Props) {
     player: Player;
   } | null>(null);
   const [moves, setMoves] = useState<
-    {
-      // Stable id so async rank-worker results can find their entry
-      // even if the user makes more moves while the previous ranking
-      // is still computing.
-      id: number;
-      p: Player;
-      c: number;
-      r: number;
-      // Per-move quality used by the shots-on-target average.  null
-      // when the position offered no real choice (every legal column
-      // tied) — those moves don't contribute to the average at all.
-      // Stays `pending` (= null) until the rank-worker fills it in.
-      q: { quality: number; weight: number } | null;
-    }[]
+    { p: Player; c: number; r: number }[]
   >([]);
-  const moveIdRef = useRef(0);
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null);
   const [draw, setDraw] = useState(false);
   const [score, setScore] = useState<{ 1: number; 2: number }>({ 1: 0, 2: 0 });
@@ -178,72 +143,13 @@ export default function Connect4({ onClose }: Connect4Props) {
       if (board[0][col] !== 0) return;
       const r = dropRow(board, col);
       if (r < 0) return;
-      const player = turn;
       const nb = board.map((row) => row.slice()) as Cell[][];
       nb[r][col] = turn;
 
-      const moveId = ++moveIdRef.current;
-      const preMoveCells = board;
       setBoard(nb);
       setFalling({ id: Date.now() + Math.random(), r, c: col, player: turn });
-      setMoves((m) => [...m, { id: moveId, p: turn, c: col, r, q: null }]);
+      setMoves((m) => [...m, { p: turn, c: col, r }]);
       setLocked(true);
-
-      // Rate the move asynchronously in a Web Worker so the click→drop
-      // animation paints immediately and the ~100ms iterative-deepening
-      // ranking can run in parallel.  Each candidate column is solved
-      // with a small per-candidate budget (sharing one TT across all
-      // candidates so overlapping subtrees don't get re-searched).
-      //
-      // Quality:  (played − worst) / (best − worst) ∈ [0, 1].
-      // Weight:   min(1, (best − worst) / 30) — the score gap proxies
-      //           how much choice the position offered.  Decisive
-      //           positions count fully; close calls contribute
-      //           proportionally less so they neither lift nor crater
-      //           the average.
-      //
-      // Stays null when every legal column scored identically — those
-      // positions don't reflect any real decision, so they're skipped.
-      //
-      // CPU moves are NOT ranked: the AI plays with a much deeper
-      // search budget than the ranker has, so subjecting its move to
-      // the shallow ranker just produces noise that disagrees with
-      // the bot's own evaluation.  Their q stays null and they drop
-      // out of the shots-on-target average via the null-skip filter.
-      const isCpuMove = aiId !== null && player === aiId;
-      if (!isCpuMove) {
-        const rankWorker = new SolverWorker();
-        rankWorker.onmessage = (
-          e: MessageEvent<{ op: 'rank'; ranked: { col: number; score: number }[] }>,
-        ) => {
-          rankWorker.terminate();
-          if (e.data.op !== 'rank') return;
-          const ranked = e.data.ranked;
-          if (ranked.length <= 1) return;
-          let bestS = -Infinity;
-          let worstS = Infinity;
-          for (const m of ranked) {
-            if (m.score > bestS) bestS = m.score;
-            if (m.score < worstS) worstS = m.score;
-          }
-          if (bestS <= worstS) return;
-          const played = ranked.find((m) => m.col === col);
-          if (!played) return;
-          const q = {
-            quality: (played.score - worstS) / (bestS - worstS),
-            weight: Math.min(1, (bestS - worstS) / 30),
-          };
-          setMoves((prev) =>
-            prev.map((m) => (m.id === moveId ? { ...m, q } : m)),
-          );
-        };
-        rankWorker.postMessage({
-          op: 'rank',
-          cells: preMoveCells,
-          turn: player,
-          budgetMs: 200,
-        });
-      }
 
       const animMs = (0.4 + (r + 2) * 0.05) * 1000 + 60;
       window.setTimeout(() => {
@@ -610,7 +516,6 @@ export default function Connect4({ onClose }: Connect4Props) {
                 role={aiId === 1 ? 'Elias' : 'player one'}
                 score={score[1]}
                 draws={mode === 'vsAI' && drawCount > 0 ? drawCount : null}
-                shotPct={showShotsOnTarget ? avgPct(moves, 1) : null}
                 active={turn === 1 && !winInfo && !draw}
                 winner={winInfo?.winner === 1}
               />
@@ -620,7 +525,6 @@ export default function Connect4({ onClose }: Connect4Props) {
                 role={aiId === 2 ? 'Elias' : 'player two'}
                 score={score[2]}
                 draws={mode === 'vsAI' && drawCount > 0 ? drawCount : null}
-                shotPct={showShotsOnTarget ? avgPct(moves, 2) : null}
                 active={turn === 2 && !winInfo && !draw}
                 winner={winInfo?.winner === 2}
               />
@@ -714,24 +618,6 @@ export default function Connect4({ onClose }: Connect4Props) {
                   </Toggle>
                 </dd>
               </div>
-              <div className="c4-toggle-row">
-                <dt>shots on tgt</dt>
-                <dd>
-                  <Toggle
-                    active={showShotsOnTarget}
-                    onClick={() => setShowShotsOnTarget(true)}
-                  >
-                    shown
-                  </Toggle>
-                  <span className="c4-sep">·</span>
-                  <Toggle
-                    active={!showShotsOnTarget}
-                    onClick={() => setShowShotsOnTarget(false)}
-                  >
-                    hidden
-                  </Toggle>
-                </dd>
-              </div>
             </dl>
 
             <div className="c4-keys">
@@ -792,7 +678,6 @@ function PlayerRow({
   role,
   score,
   draws,
-  shotPct,
   active,
   winner,
 }: {
@@ -801,7 +686,6 @@ function PlayerRow({
   role: string;
   score: number;
   draws: number | null;
-  shotPct: number | null;
   active: boolean;
   winner: boolean;
 }) {
@@ -811,12 +695,7 @@ function PlayerRow({
     >
       <div className={`c4-coin c4-player-coin is-${colour}`} />
       <div className="c4-player-meta">
-        <div className="c4-player-name-line">
-          <span className={`c4-player-name is-${colour}`}>{name}</span>
-          {shotPct !== null && (
-            <span className="c4-player-shot">({shotPct.toFixed(0)}%)</span>
-          )}
-        </div>
+        <div className={`c4-player-name is-${colour}`}>{name}</div>
         <div className="c4-player-role">{role}</div>
       </div>
       <div className="c4-player-score">

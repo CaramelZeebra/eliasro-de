@@ -2002,6 +2002,13 @@ body.green-mode {
   z-index: 110;
   font-variant-numeric: tabular-nums;
 }
+/* Sitting against the dark modal backdrop, the paper-mixed ink is
+   essentially invisible.  Switch to a neutral mid-gray so the stamp
+   still reads at the same visual weight as it does on the document
+   page. */
+.compiled-note.is-on-backdrop {
+  color: rgba(255, 255, 255, 0.45);
+}
 
 .c4-modal {
   max-width: min(880px, calc(100dvw - 2em));

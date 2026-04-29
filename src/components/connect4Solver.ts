@@ -1,257 +1,134 @@
-// Bitboard-based Connect 4 solver.  Adapted from Pascal Pons'
-// reference implementation (github.com/PascalPons/connect4) into
-// TypeScript using BigInt for the 49-bit position representation.
+// Connect 4 bitboard solver — Number-split implementation.
 //
-// The 7 × 6 playable grid plus a one-row sentinel at the top of each
-// column packs into 7 × 7 = 49 bits.  Bit (c, r) lives at index
-// `c*H1 + r` where row 0 is the BOTTOM of the playable area.
+// Same algorithm as connect4Solver.ts (Pascal Pons-style negamax with
+// alpha-beta + transposition table + null-window probes + Allis-parity
+// leaf eval), but the 49-bit position state is split into two 32-bit
+// JS Numbers instead of a single BigInt.  BigInt ops in V8 are ~5–10×
+// slower than Number bit ops; this rewrite trades some code complexity
+// for that constant factor and lets the search reach a few plies deeper
+// at the same time budget.
 //
-// Two state words:
-//   `current` — bits where the player TO MOVE has stones
-//   `mask`    — bits where ANY stone exists
-// The opponent's stones are `current XOR mask`.  Switching player and
-// applying a column drop is one XOR + one ADD.
+// Bit layout (per Pons): bit (col, row) lives at index `col*H1 + row`
+// where row 0 is the BOTTOM of the playable area (row 6 is the per-column
+// sentinel).  49 bits total → low half holds bits 0-31, high half bits
+// 32-48 (kept in the low 17 bits of the `Hi` Number).
 
 const WIDTH = 7;
 const HEIGHT = 6;
 const H1 = HEIGHT + 1; // 7
 const TOTAL = WIDTH * HEIGHT; // 42
-const MIN_SCORE = -((TOTAL / 2) | 0) + 3; // -18
-const MAX_SCORE = ((TOTAL + 1) / 2) | 0 - 3; // 18
+const HI_MASK = 0x1FFFF; // 17-bit clamp for the high half
 
-// Centre-out move ordering (3 first, then 4/2, then 5/1, then 6/0).
 const COLUMN_ORDER = [3, 4, 2, 5, 1, 6, 0];
-
-const BIG = (n: number): bigint => BigInt(n);
-
-const bottomMaskBit = (col: number): bigint => 1n << BIG(col * H1);
-const topMaskBit = (col: number): bigint => 1n << BIG(HEIGHT - 1 + col * H1);
-const columnMaskBit = (col: number): bigint =>
-  ((1n << BIG(HEIGHT)) - 1n) << BIG(col * H1);
-
-let BOARD_MASK = 0n;
-let BOTTOM_MASK = 0n;
-for (let c = 0; c < WIDTH; c++) {
-  BOARD_MASK |= columnMaskBit(c);
-  BOTTOM_MASK |= bottomMaskBit(c);
-}
 
 type Cell = 0 | 1 | 2;
 type Player = 1 | 2;
 
-export class Position {
-  current: bigint;
-  mask: bigint;
-  moves: number;
+// ─── Precomputed constants in split form ─────────────────────────────
 
-  constructor(current = 0n, mask = 0n, moves = 0) {
-    this.current = current;
-    this.mask = mask;
-    this.moves = moves;
+const BOTTOM_BIT_LO: number[] = [];
+const BOTTOM_BIT_HI: number[] = [];
+const TOP_BIT_LO: number[] = [];
+const TOP_BIT_HI: number[] = [];
+const COLUMN_MASK_LO: number[] = [];
+const COLUMN_MASK_HI: number[] = [];
+
+for (let c = 0; c < WIDTH; c++) {
+  const bottomBit = c * H1;
+  const topBit = HEIGHT - 1 + c * H1;
+  if (bottomBit < 32) {
+    BOTTOM_BIT_LO.push(1 << bottomBit);
+    BOTTOM_BIT_HI.push(0);
+  } else {
+    BOTTOM_BIT_LO.push(0);
+    BOTTOM_BIT_HI.push(1 << (bottomBit - 32));
   }
-
-  // Build a Position from the 2D game board.  In the React game,
-  // `cells[row][col]` uses row 0 = TOP, row 5 = BOTTOM.  The bitboard
-  // wants row 0 = BOTTOM, so we flip vertically while transcribing.
-  static fromCells(cells: Cell[][], turn: Player): Position {
-    let countP1 = 0;
-    let countP2 = 0;
-    let mask = 0n;
-    for (let c = 0; c < WIDTH; c++) {
-      for (let r = 0; r < HEIGHT; r++) {
-        const cell = cells[HEIGHT - 1 - r][c];
-        if (cell !== 0) {
-          mask |= 1n << BIG(c * H1 + r);
-          if (cell === 1) countP1++;
-          else countP2++;
-        }
-      }
-    }
-    let current = 0n;
-    for (let c = 0; c < WIDTH; c++) {
-      for (let r = 0; r < HEIGHT; r++) {
-        const cell = cells[HEIGHT - 1 - r][c];
-        if (cell === turn) {
-          current |= 1n << BIG(c * H1 + r);
-        }
-      }
-    }
-    return new Position(current, mask, countP1 + countP2);
+  if (topBit < 32) {
+    TOP_BIT_LO.push(1 << topBit);
+    TOP_BIT_HI.push(0);
+  } else {
+    TOP_BIT_LO.push(0);
+    TOP_BIT_HI.push(1 << (topBit - 32));
   }
-
-  clone(): Position {
-    return new Position(this.current, this.mask, this.moves);
+  let colLo = 0, colHi = 0;
+  for (let r = 0; r < HEIGHT; r++) {
+    const b = c * H1 + r;
+    if (b < 32) colLo |= 1 << b;
+    else colHi |= 1 << (b - 32);
   }
-
-  canPlay(col: number): boolean {
-    return (this.mask & topMaskBit(col)) === 0n;
-  }
-
-  play(col: number): void {
-    this.current ^= this.mask;
-    this.mask |= this.mask + bottomMaskBit(col);
-    this.moves++;
-  }
-
-  // Apply a precomputed bit move (a single bit on a playable cell).
-  playMove(move: bigint): void {
-    this.current ^= this.mask;
-    this.mask |= move;
-    this.moves++;
-  }
-
-  isWinningMove(col: number): boolean {
-    return (this.winningPositions() & this.possible() & columnMaskBit(col)) !== 0n;
-  }
-
-  // Transposition-table key: current + mask collapses to a unique value
-  // because mask isolates positions and current is a subset of mask.
-  key(): bigint {
-    return this.current + this.mask;
-  }
-
-  // Bitmask of all cells where dropping a stone is legal right now.
-  possible(): bigint {
-    return (this.mask + BOTTOM_MASK) & BOARD_MASK;
-  }
-
-  // Cells where the player to move would complete four-in-a-row.
-  winningPositions(): bigint {
-    return Position.computeWinningPositions(this.current, this.mask);
-  }
-
-  // Cells where the OPPONENT would win on their next turn.
-  opponentWinningPositions(): bigint {
-    return Position.computeWinningPositions(this.current ^ this.mask, this.mask);
-  }
-
-  // Subset of legal moves that don't immediately give the opponent a
-  // winning reply.  Returns 0 if every legal move loses.
-  possibleNonLosingMoves(): bigint {
-    let possible = this.possible();
-    const oppWin = this.opponentWinningPositions();
-    const forced = possible & oppWin;
-    if (forced !== 0n) {
-      // Multiple forced blocks → cannot block them all → lost.
-      if ((forced & (forced - 1n)) !== 0n) return 0n;
-      possible = forced;
-    }
-    // Don't fill a cell directly below an opponent winning cell.
-    return possible & ~(oppWin >> 1n);
-  }
-
-  // Pascal Pons' four-direction alignment scan: returns the bitmask of
-  // empty cells that, if filled by `position`'s player, would create
-  // four-in-a-row.  Restricted to currently empty cells via `mask`.
-  static computeWinningPositions(position: bigint, mask: bigint): bigint {
-    // Vertical.
-    let r = (position << 1n) & (position << 2n) & (position << 3n);
-
-    // Horizontal.
-    let p = (position << BIG(H1)) & (position << BIG(2 * H1));
-    r |= p & (position << BIG(3 * H1));
-    r |= p & (position >> BIG(H1));
-    p = (position >> BIG(H1)) & (position >> BIG(2 * H1));
-    r |= p & (position << BIG(H1));
-    r |= p & (position >> BIG(3 * H1));
-
-    // Diagonal /.
-    p = (position << BIG(H1 - 1)) & (position << BIG(2 * (H1 - 1)));
-    r |= p & (position << BIG(3 * (H1 - 1)));
-    r |= p & (position >> BIG(H1 - 1));
-    p = (position >> BIG(H1 - 1)) & (position >> BIG(2 * (H1 - 1)));
-    r |= p & (position << BIG(H1 - 1));
-    r |= p & (position >> BIG(3 * (H1 - 1)));
-
-    // Diagonal \.
-    p = (position << BIG(H1 + 1)) & (position << BIG(2 * (H1 + 1)));
-    r |= p & (position << BIG(3 * (H1 + 1)));
-    r |= p & (position >> BIG(H1 + 1));
-    p = (position >> BIG(H1 + 1)) & (position >> BIG(2 * (H1 + 1)));
-    r |= p & (position << BIG(H1 + 1));
-    r |= p & (position >> BIG(3 * (H1 + 1)));
-
-    return r & (BOARD_MASK ^ mask);
-  }
+  COLUMN_MASK_LO.push(colLo | 0);
+  COLUMN_MASK_HI.push(colHi & HI_MASK);
 }
 
-// Count winning cells a candidate move would create — used for ordering.
-function moveScore(p: Position, move: bigint): number {
-  const wins = Position.computeWinningPositions(p.current | move, p.mask);
-  return popcount(wins);
+let BOARD_LO = 0, BOARD_HI = 0;
+let BOTTOM_LO = 0, BOTTOM_HI = 0;
+for (let c = 0; c < WIDTH; c++) {
+  BOARD_LO = (BOARD_LO | COLUMN_MASK_LO[c]) | 0;
+  BOARD_HI = (BOARD_HI | COLUMN_MASK_HI[c]) & HI_MASK;
+  BOTTOM_LO = (BOTTOM_LO | BOTTOM_BIT_LO[c]) | 0;
+  BOTTOM_HI = (BOTTOM_HI | BOTTOM_BIT_HI[c]) & HI_MASK;
 }
 
-// Bounded positional heuristic for depth-limit leaves.  Implements
-// Allis's "claim even" parity rule (Connect-Four solution, 1988):
-//
-//   In zugzwang, columns fill naturally in order — the 1st, 3rd, 5th
-//   stones in any column go to the first player, and the 2nd, 4th, 6th
-//   to the second.  In 0-indexed rows (bottom-up):
-//     - first player claims threats on EVEN rows  (0, 2, 4)
-//     - second player claims threats on ODD rows  (1, 3, 5)
-//   A threat on your claim-parity will eventually be played by you;
-//   a threat on the wrong parity is mostly decorative because the
-//   opponent can fill below it.
-//
-// The current player to move is the original first player iff the
-// total move count is even.
-//
-// Implementation: precomputed parity masks let us count claim-parity
-// vs wrong-parity threats with two `popcount(... & mask)` calls per
-// side instead of a 42-cell loop.
-//
-// Threats are weighted by claim-parity match.  An additional defensive
-// bias (opp's claim-parity threats hurt more than mine help) keeps the
-// solver cautious.  Fork bonus when ≥ 2 claim threats exist — the
-// opponent only gets one block per turn.  Centre-column control adds
-// a small symmetry-breaker for near-empty positions.
-//
-// Score clamped to ±18 so the heuristic can never outrank a real
-// ±21-area tactical win/loss returned by the negamax recursion.
-const CENTRE_MASK = columnMaskBit(3);
-const ROW_EVEN_MASK = (() => {
-  let m = 0n;
-  for (let c = 0; c < WIDTH; c++) {
-    for (const r of [0, 2, 4]) m |= 1n << BIG(c * H1 + r);
+// Centre column (col 3) entirely fits in low half.
+const CENTRE_LO = COLUMN_MASK_LO[3];
+const CENTRE_HI = COLUMN_MASK_HI[3];
+
+// Parity masks: bits at rows 0/2/4 vs 1/3/5 across all columns.
+let ROW_EVEN_LO = 0, ROW_EVEN_HI = 0;
+for (let c = 0; c < WIDTH; c++) {
+  for (const r of [0, 2, 4]) {
+    const b = c * H1 + r;
+    if (b < 32) ROW_EVEN_LO |= 1 << b;
+    else ROW_EVEN_HI |= 1 << (b - 32);
   }
-  return m;
-})();
-const ROW_ODD_MASK = BOARD_MASK ^ ROW_EVEN_MASK;
+}
+ROW_EVEN_LO = ROW_EVEN_LO | 0;
+ROW_EVEN_HI = ROW_EVEN_HI & HI_MASK;
+const ROW_ODD_LO = (BOARD_LO ^ ROW_EVEN_LO) | 0;
+const ROW_ODD_HI = (BOARD_HI ^ ROW_EVEN_HI) & HI_MASK;
 
-function leafEval(p: Position): number {
-  const firstToMove = (p.moves & 1) === 0;
-  const myClaimMask = firstToMove ? ROW_EVEN_MASK : ROW_ODD_MASK;
-  const oppClaimMask = BOARD_MASK ^ myClaimMask;
+// ─── Bit helpers on split values ─────────────────────────────────────
 
-  const myWins = p.winningPositions();
-  const oppWins = p.opponentWinningPositions();
-
-  const myClaim = popcount(myWins & myClaimMask);
-  const myWrong = popcount(myWins) - myClaim;
-  const oppClaim = popcount(oppWins & oppClaimMask);
-  const oppWrong = popcount(oppWins) - oppClaim;
-
-  let score =
-    myClaim * 2 + myWrong * 1 - oppClaim * 3 - oppWrong * 1;
-
-  if (myClaim >= 2) score += 3;
-  if (oppClaim >= 2) score -= 4;
-
-  const myCentre = popcount(p.current & CENTRE_MASK);
-  const oppCentre = popcount((p.current ^ p.mask) & CENTRE_MASK);
-  score += myCentre - oppCentre;
-
-  return Math.max(-18, Math.min(18, score));
+// Shift left by k ∈ [0, 48]: bits flow lo → hi.
+function shlLo(lo: number, _hi: number, k: number): number {
+  if (k === 0) return lo | 0;
+  if (k >= 32) return 0;
+  return (lo << k) | 0;
+}
+function shlHi(lo: number, hi: number, k: number): number {
+  if (k === 0) return hi & HI_MASK;
+  if (k >= 32) return ((lo << (k - 32)) & HI_MASK);
+  return (((hi << k) | (lo >>> (32 - k))) & HI_MASK);
 }
 
-// Constant-time popcount via SWAR.  The bitboard fits in 49 bits, so
-// split into two `Number` halves and run a 32-bit SWAR popcount on each.
-// Cheaper than Brian-Kernighan's loop for dense bitfields and roughly
-// equivalent for sparse ones — uniformly fast across the game arc.
-function popcount(b: bigint): number {
-  const lo = Number(b & 0xFFFFFFFFn) | 0;
-  const hi = Number(b >> 32n) | 0;
-  return popcount32(lo) + popcount32(hi);
+// Shift right by k ∈ [0, 48]: bits flow hi → lo.
+function shrLo(lo: number, hi: number, k: number): number {
+  if (k === 0) return lo | 0;
+  if (k >= 32) return ((hi >>> (k - 32)) & HI_MASK) | 0;
+  return (((lo >>> k) | (hi << (32 - k))) | 0);
+}
+function shrHi(_lo: number, hi: number, k: number): number {
+  if (k === 0) return hi & HI_MASK;
+  if (k >= 32) return 0;
+  return ((hi >>> k) & HI_MASK);
+}
+
+// Add two 49-bit values.  Sum can overflow into bit 49 — the caller
+// usually ANDs with BOARD_MASK afterwards which discards it.
+function addLo(aLo: number, _aHi: number, bLo: number, _bHi: number): number {
+  // unsigned 32-bit sum, returned as int32
+  return (((aLo >>> 0) + (bLo >>> 0)) >>> 0) | 0;
+}
+function addHi(aLo: number, aHi: number, bLo: number, bHi: number): number {
+  // Carry from low if (aLo + bLo) overflows 32 bits.
+  const sumLo = (aLo >>> 0) + (bLo >>> 0);
+  const carry = sumLo > 0xFFFFFFFF ? 1 : 0;
+  return ((aHi + bHi + carry) & HI_MASK);
+}
+
+// Constant-time popcount across the two halves.
+function popcountSplit(lo: number, hi: number): number {
+  return popcount32(lo | 0) + popcount32(hi | 0);
 }
 function popcount32(x: number): number {
   x = x | 0;
@@ -261,49 +138,335 @@ function popcount32(x: number): number {
   return Math.imul(x, 0x01010101) >>> 24;
 }
 
-// Transposition-table entry packs:  flag (2 bits) + value (signed int).
-// flag: 0 = exact, 1 = lower bound, 2 = upper bound.
-interface TTEntry {
-  value: number;
-  flag: 0 | 1 | 2;
-  depth: number;
-}
+// ─── Position class ──────────────────────────────────────────────────
 
-class TimeBudgetExceeded extends Error {
-  constructor() {
-    super('time-budget');
+export class Position {
+  currentLo = 0;
+  currentHi = 0;
+  maskLo = 0;
+  maskHi = 0;
+  moves = 0;
+
+  static fromCells(cells: Cell[][], turn: Player): Position {
+    const p = new Position();
+    let countP1 = 0;
+    let countP2 = 0;
+    for (let c = 0; c < WIDTH; c++) {
+      for (let r = 0; r < HEIGHT; r++) {
+        const cell = cells[HEIGHT - 1 - r][c];
+        if (cell !== 0) {
+          const b = c * H1 + r;
+          if (b < 32) p.maskLo = (p.maskLo | (1 << b)) | 0;
+          else p.maskHi = (p.maskHi | (1 << (b - 32))) & HI_MASK;
+          if (cell === 1) countP1++; else countP2++;
+        }
+      }
+    }
+    p.moves = countP1 + countP2;
+    for (let c = 0; c < WIDTH; c++) {
+      for (let r = 0; r < HEIGHT; r++) {
+        if (cells[HEIGHT - 1 - r][c] === turn) {
+          const b = c * H1 + r;
+          if (b < 32) p.currentLo = (p.currentLo | (1 << b)) | 0;
+          else p.currentHi = (p.currentHi | (1 << (b - 32))) & HI_MASK;
+        }
+      }
+    }
+    return p;
+  }
+
+  clone(): Position {
+    const p = new Position();
+    p.currentLo = this.currentLo;
+    p.currentHi = this.currentHi;
+    p.maskLo = this.maskLo;
+    p.maskHi = this.maskHi;
+    p.moves = this.moves;
+    return p;
+  }
+
+  canPlay(col: number): boolean {
+    return (this.maskLo & TOP_BIT_LO[col]) === 0 &&
+           (this.maskHi & TOP_BIT_HI[col]) === 0;
+  }
+
+  play(col: number): void {
+    // current ^= mask
+    const cl = this.currentLo ^ this.maskLo;
+    const ch = (this.currentHi ^ this.maskHi) & HI_MASK;
+    // mask |= mask + bottomBit(col)
+    const bLo = BOTTOM_BIT_LO[col];
+    const bHi = BOTTOM_BIT_HI[col];
+    const sumLo = addLo(this.maskLo, this.maskHi, bLo, bHi);
+    const sumHi = addHi(this.maskLo, this.maskHi, bLo, bHi);
+    this.currentLo = cl | 0;
+    this.currentHi = ch & HI_MASK;
+    this.maskLo = (this.maskLo | sumLo) | 0;
+    this.maskHi = ((this.maskHi | sumHi) & HI_MASK);
+    this.moves++;
+  }
+
+  // Apply a precomputed bit move (a single bit on a playable cell).
+  playMoveSplit(moveLo: number, moveHi: number): void {
+    this.currentLo ^= this.maskLo;
+    this.currentHi = (this.currentHi ^ this.maskHi) & HI_MASK;
+    this.maskLo = (this.maskLo | moveLo) | 0;
+    this.maskHi = ((this.maskHi | moveHi) & HI_MASK);
+    this.moves++;
+  }
+
+  isWinningMove(col: number): boolean {
+    // (winningPositions() & possible() & columnMask) ≠ 0
+    const win = this.winningPositions();
+    const possLo = this.possibleLo();
+    const possHi = this.possibleHi();
+    const checkLo = win.lo & possLo & COLUMN_MASK_LO[col];
+    const checkHi = win.hi & possHi & COLUMN_MASK_HI[col];
+    return (checkLo | checkHi) !== 0;
+  }
+
+  // Transposition-table key — Pons's `current + mask` packs uniquely
+  // because `mask` isolates positions and `current` is a subset of `mask`.
+  // We combine the two split values into a single Number; the result is
+  // ≤ 2 × (2^49 - 1) ≈ 2^50, well within the 2^53 exact-integer range.
+  key(): number {
+    const currentFull = this.currentHi * 0x100000000 + (this.currentLo >>> 0);
+    const maskFull = this.maskHi * 0x100000000 + (this.maskLo >>> 0);
+    return currentFull + maskFull;
+  }
+
+  // Bitmask of cells where dropping a stone is legal right now.
+  possibleLo(): number {
+    return (addLo(this.maskLo, this.maskHi, BOTTOM_LO, BOTTOM_HI) & BOARD_LO) | 0;
+  }
+  possibleHi(): number {
+    return (addHi(this.maskLo, this.maskHi, BOTTOM_LO, BOTTOM_HI) & BOARD_HI) & HI_MASK;
+  }
+
+  // Cells where the player to move would complete four-in-a-row.
+  winningPositions(): { lo: number; hi: number } {
+    return computeWinningPositions(this.currentLo, this.currentHi, this.maskLo, this.maskHi);
+  }
+  opponentWinningPositions(): { lo: number; hi: number } {
+    const oppLo = this.currentLo ^ this.maskLo;
+    const oppHi = (this.currentHi ^ this.maskHi) & HI_MASK;
+    return computeWinningPositions(oppLo, oppHi, this.maskLo, this.maskHi);
+  }
+
+  // Subset of legal moves that don't immediately give the opponent a
+  // winning reply.  Returns 0 if every legal move loses.
+  possibleNonLosingMoves(): { lo: number; hi: number } {
+    let possLo = this.possibleLo();
+    let possHi = this.possibleHi();
+    const opp = this.opponentWinningPositions();
+    const forcedLo = possLo & opp.lo;
+    const forcedHi = possHi & opp.hi;
+    if ((forcedLo | forcedHi) !== 0) {
+      // Multiple forced blocks → cannot block them all → lost.
+      const popcount = popcountSplit(forcedLo, forcedHi);
+      if (popcount > 1) return { lo: 0, hi: 0 };
+      possLo = forcedLo;
+      possHi = forcedHi;
+    }
+    // Don't fill a cell directly below an opponent winning cell.
+    // ~(oppWin >> 1) — shift right by 1, then NOT, then AND.
+    const shiftedLo = shrLo(opp.lo, opp.hi, 1);
+    const shiftedHi = shrHi(opp.lo, opp.hi, 1);
+    return {
+      lo: (possLo & ~shiftedLo) | 0,
+      hi: (possHi & ~shiftedHi) & HI_MASK,
+    };
   }
 }
+
+// ─── computeWinningPositions ─────────────────────────────────────────
+// Pascal Pons's four-direction alignment scan, expressed in split form.
+// For each direction with shift amount `s`, the formula is:
+//   r = pos & (pos >> s) & (pos >> 2s) & (pos >> 3s)        // already-aligned
+//   r |= ... patterns with shifts in either direction       // win-cell scans
+// We compute lo/hi separately for each shifted variant, then combine.
+
+function computeWinningPositions(
+  posLo: number, posHi: number, maskLo: number, maskHi: number,
+): { lo: number; hi: number } {
+  let rLo = 0, rHi = 0;
+
+  // Vertical: shift by 1 (bits move up within the column).
+  {
+    // pos << 1 & pos << 2 & pos << 3
+    const a1Lo = shlLo(posLo, posHi, 1);
+    const a1Hi = shlHi(posLo, posHi, 1);
+    const a2Lo = shlLo(posLo, posHi, 2);
+    const a2Hi = shlHi(posLo, posHi, 2);
+    const a3Lo = shlLo(posLo, posHi, 3);
+    const a3Hi = shlHi(posLo, posHi, 3);
+    rLo |= a1Lo & a2Lo & a3Lo;
+    rHi |= a1Hi & a2Hi & a3Hi;
+  }
+
+  // Horizontal (shift by H1 = 7).
+  {
+    const s = H1;
+    // p = (pos << s) & (pos << 2s)
+    const sl1Lo = shlLo(posLo, posHi, s);
+    const sl1Hi = shlHi(posLo, posHi, s);
+    const sl2Lo = shlLo(posLo, posHi, 2 * s);
+    const sl2Hi = shlHi(posLo, posHi, 2 * s);
+    let pLo = sl1Lo & sl2Lo;
+    let pHi = sl1Hi & sl2Hi;
+    // r |= p & (pos << 3s)
+    const sl3Lo = shlLo(posLo, posHi, 3 * s);
+    const sl3Hi = shlHi(posLo, posHi, 3 * s);
+    rLo |= pLo & sl3Lo;
+    rHi |= pHi & sl3Hi;
+    // r |= p & (pos >> s)
+    const sr1Lo = shrLo(posLo, posHi, s);
+    const sr1Hi = shrHi(posLo, posHi, s);
+    rLo |= pLo & sr1Lo;
+    rHi |= pHi & sr1Hi;
+    // p = (pos >> s) & (pos >> 2s)
+    const sr2Lo = shrLo(posLo, posHi, 2 * s);
+    const sr2Hi = shrHi(posLo, posHi, 2 * s);
+    pLo = sr1Lo & sr2Lo;
+    pHi = sr1Hi & sr2Hi;
+    // r |= p & (pos << s)
+    rLo |= pLo & sl1Lo;
+    rHi |= pHi & sl1Hi;
+    // r |= p & (pos >> 3s)
+    const sr3Lo = shrLo(posLo, posHi, 3 * s);
+    const sr3Hi = shrHi(posLo, posHi, 3 * s);
+    rLo |= pLo & sr3Lo;
+    rHi |= pHi & sr3Hi;
+  }
+
+  // Diagonal / (shift by H1 - 1 = 6).
+  {
+    const s = H1 - 1;
+    const sl1Lo = shlLo(posLo, posHi, s);
+    const sl1Hi = shlHi(posLo, posHi, s);
+    const sl2Lo = shlLo(posLo, posHi, 2 * s);
+    const sl2Hi = shlHi(posLo, posHi, 2 * s);
+    let pLo = sl1Lo & sl2Lo;
+    let pHi = sl1Hi & sl2Hi;
+    const sl3Lo = shlLo(posLo, posHi, 3 * s);
+    const sl3Hi = shlHi(posLo, posHi, 3 * s);
+    rLo |= pLo & sl3Lo;
+    rHi |= pHi & sl3Hi;
+    const sr1Lo = shrLo(posLo, posHi, s);
+    const sr1Hi = shrHi(posLo, posHi, s);
+    rLo |= pLo & sr1Lo;
+    rHi |= pHi & sr1Hi;
+    const sr2Lo = shrLo(posLo, posHi, 2 * s);
+    const sr2Hi = shrHi(posLo, posHi, 2 * s);
+    pLo = sr1Lo & sr2Lo;
+    pHi = sr1Hi & sr2Hi;
+    rLo |= pLo & sl1Lo;
+    rHi |= pHi & sl1Hi;
+    const sr3Lo = shrLo(posLo, posHi, 3 * s);
+    const sr3Hi = shrHi(posLo, posHi, 3 * s);
+    rLo |= pLo & sr3Lo;
+    rHi |= pHi & sr3Hi;
+  }
+
+  // Diagonal \ (shift by H1 + 1 = 8).
+  {
+    const s = H1 + 1;
+    const sl1Lo = shlLo(posLo, posHi, s);
+    const sl1Hi = shlHi(posLo, posHi, s);
+    const sl2Lo = shlLo(posLo, posHi, 2 * s);
+    const sl2Hi = shlHi(posLo, posHi, 2 * s);
+    let pLo = sl1Lo & sl2Lo;
+    let pHi = sl1Hi & sl2Hi;
+    const sl3Lo = shlLo(posLo, posHi, 3 * s);
+    const sl3Hi = shlHi(posLo, posHi, 3 * s);
+    rLo |= pLo & sl3Lo;
+    rHi |= pHi & sl3Hi;
+    const sr1Lo = shrLo(posLo, posHi, s);
+    const sr1Hi = shrHi(posLo, posHi, s);
+    rLo |= pLo & sr1Lo;
+    rHi |= pHi & sr1Hi;
+    const sr2Lo = shrLo(posLo, posHi, 2 * s);
+    const sr2Hi = shrHi(posLo, posHi, 2 * s);
+    pLo = sr1Lo & sr2Lo;
+    pHi = sr1Hi & sr2Hi;
+    rLo |= pLo & sl1Lo;
+    rHi |= pHi & sl1Hi;
+    const sr3Lo = shrLo(posLo, posHi, 3 * s);
+    const sr3Hi = shrHi(posLo, posHi, 3 * s);
+    rLo |= pLo & sr3Lo;
+    rHi |= pHi & sr3Hi;
+  }
+
+  // Restrict to currently empty cells.
+  return {
+    lo: (rLo & ((BOARD_LO ^ maskLo) | 0)) | 0,
+    hi: (rHi & ((BOARD_HI ^ maskHi) & HI_MASK)) & HI_MASK,
+  };
+}
+
+// ─── Heuristic + solver ──────────────────────────────────────────────
+
+function moveScore(p: Position, moveLo: number, moveHi: number): number {
+  const newLo = (p.currentLo | moveLo) | 0;
+  const newHi = ((p.currentHi | moveHi) & HI_MASK);
+  const newMaskLo = (p.maskLo | moveLo) | 0;
+  const newMaskHi = ((p.maskHi | moveHi) & HI_MASK);
+  const w = computeWinningPositions(newLo, newHi, newMaskLo, newMaskHi);
+  return popcountSplit(w.lo, w.hi);
+}
+
+function leafEval(p: Position): number {
+  const firstToMove = (p.moves & 1) === 0;
+  const myClaimMaskLo = firstToMove ? ROW_EVEN_LO : ROW_ODD_LO;
+  const myClaimMaskHi = firstToMove ? ROW_EVEN_HI : ROW_ODD_HI;
+  const oppClaimMaskLo = (BOARD_LO ^ myClaimMaskLo) | 0;
+  const oppClaimMaskHi = (BOARD_HI ^ myClaimMaskHi) & HI_MASK;
+
+  const myWin = p.winningPositions();
+  const oppWin = p.opponentWinningPositions();
+
+  const myClaim = popcountSplit(myWin.lo & myClaimMaskLo, myWin.hi & myClaimMaskHi);
+  const myWrong = popcountSplit(myWin.lo, myWin.hi) - myClaim;
+  const oppClaim = popcountSplit(oppWin.lo & oppClaimMaskLo, oppWin.hi & oppClaimMaskHi);
+  const oppWrong = popcountSplit(oppWin.lo, oppWin.hi) - oppClaim;
+
+  let score = myClaim * 2 + myWrong * 1 - oppClaim * 3 - oppWrong * 1;
+  if (myClaim >= 2) score += 3;
+  if (oppClaim >= 2) score -= 4;
+
+  const myCentre = popcountSplit(p.currentLo & CENTRE_LO, p.currentHi & CENTRE_HI);
+  const oppCentre = popcountSplit(
+    (p.currentLo ^ p.maskLo) & CENTRE_LO,
+    ((p.currentHi ^ p.maskHi) & HI_MASK) & CENTRE_HI,
+  );
+  score += myCentre - oppCentre;
+
+  return Math.max(-18, Math.min(18, score));
+}
+
+interface TTEntry { value: number; flag: 0 | 1 | 2; depth: number; }
+class TimeBudgetExceeded extends Error { constructor() { super('time-budget'); } }
 
 export interface SolveResult {
   col: number;
   score: number;
-  /** Whether the search completed without exhausting the time budget. */
   exhaustive: boolean;
 }
 
 const DEFAULT_BUDGET_MS = 2200;
 const TT_MAX = 400_000;
 
-// Iterative-deepening negamax with alpha-beta + TT + null-window probes.
-// Returns the best column to play.  If `budgetMs` runs out, returns the
-// best move found at the deepest fully-completed iteration.
-export function solve(
-  position: Position,
-  budgetMs = DEFAULT_BUDGET_MS,
-): SolveResult {
+export function solve(position: Position, budgetMs = DEFAULT_BUDGET_MS): SolveResult {
   const deadline = performance.now() + budgetMs;
 
-  // Immediate win — short-circuit.
   for (const c of COLUMN_ORDER) {
     if (position.canPlay(c) && position.isWinningMove(c)) {
       return { col: c, score: 1000, exhaustive: true };
     }
   }
 
-  const possible = position.possibleNonLosingMoves();
-  if (possible === 0n) {
-    // Every legal move loses — block the most central one to drag it out.
+  const possible0 = position.possibleNonLosingMoves();
+  if (possible0.lo === 0 && possible0.hi === 0) {
     for (const c of COLUMN_ORDER) {
       if (position.canPlay(c)) {
         return { col: c, score: -1000, exhaustive: true };
@@ -311,33 +474,32 @@ export function solve(
     }
   }
 
-  const candidates: { col: number; bit: bigint; score: number }[] = [];
+  type Cand = { col: number; bitLo: number; bitHi: number; score: number };
+  const candidates: Cand[] = [];
   for (const c of COLUMN_ORDER) {
-    const colBits = columnMaskBit(c) & possible;
-    if (colBits !== 0n) {
-      candidates.push({ col: c, bit: colBits, score: moveScore(position, colBits) });
+    const colBitsLo = COLUMN_MASK_LO[c] & possible0.lo;
+    const colBitsHi = COLUMN_MASK_HI[c] & possible0.hi;
+    if ((colBitsLo | colBitsHi) !== 0) {
+      candidates.push({
+        col: c, bitLo: colBitsLo, bitHi: colBitsHi,
+        score: moveScore(position, colBitsLo, colBitsHi),
+      });
     }
   }
   candidates.sort((a, b) => b.score - a.score);
 
-  const tt = new Map<bigint, TTEntry>();
+  const tt = new Map<number, TTEntry>();
 
   function negamax(p: Position, alpha: number, beta: number, depth: number): number {
     if (performance.now() > deadline) throw new TimeBudgetExceeded();
-
     if (p.moves >= TOTAL) return 0;
-
     if (depth <= 0) return leafEval(p);
 
     const possible = p.possibleNonLosingMoves();
-    if (possible === 0n) {
+    if (possible.lo === 0 && possible.hi === 0) {
       return -((TOTAL - p.moves) >> 1);
     }
-
-    if (p.moves >= TOTAL - 2) {
-      // Filling final 2 cells: it's a draw.
-      return 0;
-    }
+    if (p.moves >= TOTAL - 2) return 0;
 
     let max = ((TOTAL - 1 - p.moves) >> 1);
     const k = p.key();
@@ -353,26 +515,25 @@ export function solve(
       if (alpha >= beta) return beta;
     }
 
-    const localCandidates: { bit: bigint; col: number; score: number }[] = [];
+    const local: Cand[] = [];
     for (const c of COLUMN_ORDER) {
-      const colBits = columnMaskBit(c) & possible;
-      if (colBits !== 0n) {
-        localCandidates.push({ col: c, bit: colBits, score: moveScore(p, colBits) });
+      const colBitsLo = COLUMN_MASK_LO[c] & possible.lo;
+      const colBitsHi = COLUMN_MASK_HI[c] & possible.hi;
+      if ((colBitsLo | colBitsHi) !== 0) {
+        local.push({
+          col: c, bitLo: colBitsLo, bitHi: colBitsHi,
+          score: moveScore(p, colBitsLo, colBitsHi),
+        });
       }
     }
-    localCandidates.sort((a, b) => b.score - a.score);
+    local.sort((a, b) => b.score - a.score);
 
-    // Principal variation search: probe non-leading moves with a null
-    // window (alpha, alpha+1) — succeeds quickly when the move can't
-    // beat the current best, and only re-searches with the full window
-    // on the rare case it does.  Significant speedup when move ordering
-    // is good (winning-positions count → centre-out).
     const origAlpha = alpha;
     let bestVal = -Infinity;
     let firstMove = true;
-    for (const m of localCandidates) {
+    for (const m of local) {
       const next = p.clone();
-      next.playMove(m.bit);
+      next.playMoveSplit(m.bitLo, m.bitHi);
       let score: number;
       if (firstMove) {
         score = -negamax(next, -beta, -alpha, depth - 1);
@@ -386,9 +547,7 @@ export function solve(
       if (score > bestVal) bestVal = score;
       if (score > alpha) alpha = score;
       if (alpha >= beta) {
-        if (tt.size < TT_MAX) {
-          tt.set(k, { value: alpha, flag: 1, depth });
-        }
+        if (tt.size < TT_MAX) tt.set(k, { value: alpha, flag: 1, depth });
         return alpha;
       }
     }
@@ -403,20 +562,17 @@ export function solve(
   let bestCol = candidates[0].col;
   let bestScore = -Infinity;
   let exhaustive = false;
-
-  // Iterative deepening: each pass refines the answer; a complete pass at
-  // depth >= remaining-moves is exhaustive (true game-theoretic value).
   const remaining = TOTAL - position.moves;
+
   for (let depth = 4; depth <= remaining; depth += 2) {
     if (performance.now() > deadline) break;
     let depthBest = bestCol;
     let depthScore = -Infinity;
     let timedOut = false;
-
     try {
       for (const m of candidates) {
         const next = position.clone();
-        next.playMove(m.bit);
+        next.playMoveSplit(m.bitLo, m.bitHi);
         const score = -negamax(next, -1000, 1000, depth - 1);
         if (score > depthScore) {
           depthScore = score;
@@ -427,12 +583,9 @@ export function solve(
       if (e instanceof TimeBudgetExceeded) timedOut = true;
       else throw e;
     }
-
     if (!timedOut) {
       bestCol = depthBest;
       bestScore = depthScore;
-      // Re-sort top-level candidates so the strongest move is searched
-      // first next iteration — a meaningful speedup with TT.
       candidates.sort((a, b) =>
         a.col === depthBest ? -1 : b.col === depthBest ? 1 : b.score - a.score,
       );
@@ -448,12 +601,7 @@ export function solve(
   return { col: bestCol, score: bestScore, exhaustive };
 }
 
-// Shallow per-move ranking for the "shots on target" stat.  Evaluates
-// every legal column at a fixed depth and returns the resulting score
-// from the player-to-move's perspective — caller computes percentile
-// rank of whatever column was actually played.  Pure heuristic at the
-// leaves keeps the cost in the low milliseconds even for the start
-// position, fast enough to call synchronously after each move.
+// Shallow per-move ranking for the "shots on target" stat.
 export function rankMoves(p: Position, depth = 5): { col: number; score: number }[] {
   const out: { col: number; score: number }[] = [];
   const winScore = (TOTAL + 1 - p.moves) >> 1;
@@ -461,9 +609,6 @@ export function rankMoves(p: Position, depth = 5): { col: number; score: number 
     if (!p.canPlay(c)) continue;
     let score: number;
     if (p.isWinningMove(c)) {
-      // Immediate win — never recurse into the opponent's lost position
-      // (recursion has no terminal-state check and would just return the
-      // heuristic from a dead board).
       score = winScore;
     } else {
       const next = p.clone();
@@ -477,29 +622,26 @@ export function rankMoves(p: Position, depth = 5): { col: number; score: number 
 
 function shallowNegamax(p: Position, depth: number, alpha: number, beta: number): number {
   if (p.moves >= TOTAL) return 0;
-
-  // Immediate-win short-circuit for the player to move.
   for (let c = 0; c < WIDTH; c++) {
     if (p.canPlay(c) && p.isWinningMove(c)) {
-      return ((TOTAL + 1 - p.moves) >> 1);
+      return (TOTAL + 1 - p.moves) >> 1;
     }
   }
-
   if (depth <= 0) return leafEval(p);
-
   const possible = p.possibleNonLosingMoves();
-  if (possible === 0n) return -((TOTAL - p.moves) >> 1);
+  if (possible.lo === 0 && possible.hi === 0) return -((TOTAL - p.moves) >> 1);
   if (p.moves >= TOTAL - 2) return 0;
 
   let best = -Infinity;
   for (const c of COLUMN_ORDER) {
-    const colBits = columnMaskBit(c) & possible;
-    if (colBits === 0n) continue;
+    const colBitsLo = COLUMN_MASK_LO[c] & possible.lo;
+    const colBitsHi = COLUMN_MASK_HI[c] & possible.hi;
+    if ((colBitsLo | colBitsHi) === 0) continue;
     const next = p.clone();
-    next.playMove(colBits);
-    const score = -shallowNegamax(next, depth - 1, -beta, -alpha);
-    if (score > best) best = score;
-    if (score > alpha) alpha = score;
+    next.playMoveSplit(colBitsLo, colBitsHi);
+    const s = -shallowNegamax(next, depth - 1, -beta, -alpha);
+    if (s > best) best = s;
+    if (s > alpha) alpha = s;
     if (alpha >= beta) break;
   }
   return best;

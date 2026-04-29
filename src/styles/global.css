@@ -2002,16 +2002,25 @@ body.green-mode {
   z-index: 110;
   font-variant-numeric: tabular-nums;
 }
-/* Sitting against the dark modal backdrop, the paper-mixed ink is
-   essentially invisible.  Switch to a neutral mid-gray so the stamp
-   still reads at the same visual weight as it does on the document
-   page. */
-.compiled-note.is-on-backdrop {
-  color: rgba(255, 255, 255, 0.45);
+/* Same stamp pinned to the bottom-right INSIDE the C4 modal box (so
+   it sits on the modal's paper rather than floating in the dark
+   backdrop).  Same typography and ink-on-paper colour as the
+   document-page stamp. */
+.c4-compiled-note {
+  position: absolute;
+  right: 0.9em;
+  bottom: 0.5em;
+  font-family: var(--mono);
+  font-size: 0.62em;
+  letter-spacing: 0.12em;
+  color: color-mix(in oklab, var(--ink) 38%, var(--paper));
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .c4-modal {
   max-width: min(880px, calc(100dvw - 2em));
+  position: relative;
   --c4-red: #8a2a25;
   --c4-green: #3a5a2e;
   --c4-gold: #c89b4a;

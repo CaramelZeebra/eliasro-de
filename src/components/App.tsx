@@ -194,13 +194,15 @@ export default function App({ posts = [], streetview = [], buildTime }: AppProps
           </div>
         )}
 
-        {connect4Open && <Connect4 onClose={() => setConnect4Open(false)} />}
+        {connect4Open && (
+          <Connect4
+            onClose={() => setConnect4Open(false)}
+            buildTime={buildTime}
+          />
+        )}
 
-        {(stage === 'document' || connect4Open) && buildTime && (
-          <div
-            className={`compiled-note${connect4Open ? ' is-on-backdrop' : ''}`}
-            aria-hidden="true"
-          >
+        {stage === 'document' && buildTime && (
+          <div className="compiled-note" aria-hidden="true">
             compiled {buildTime}
           </div>
         )}

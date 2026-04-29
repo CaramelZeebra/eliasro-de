@@ -95,9 +95,10 @@ function decisiveLabel(redScore: number, exhaustive: boolean): string | null {
 
 interface Connect4Props {
   onClose: () => void;
+  buildTime?: string;
 }
 
-export default function Connect4({ onClose }: Connect4Props) {
+export default function Connect4({ onClose, buildTime }: Connect4Props) {
   const [mode, setMode] = useState<Mode>('twoPlayer');
   const [firstPlayer, setFirstPlayer] = useState<FirstPlayer>('red');
   const [showEval, setShowEval] = useState(false);
@@ -665,6 +666,12 @@ export default function Connect4({ onClose }: Connect4Props) {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {buildTime && (
+          <div className="c4-compiled-note" aria-hidden="true">
+            compiled {buildTime}
           </div>
         )}
       </div>

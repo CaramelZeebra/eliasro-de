@@ -114,6 +114,6 @@ const posts = await Promise.all(
         />
       </filter>
     </svg>
-    <App client:load posts={posts} streetview={streetview} buildTime={new Date().toISOString().slice(0, 16).replace('T', ' ')} />
+    <App client:load posts={posts} streetview={streetview} buildTime={new Date().toISOString().slice(0, 10)} />
   </body>
 </html>

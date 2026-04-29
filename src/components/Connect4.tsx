@@ -561,6 +561,7 @@ export default function Connect4({ onClose }: Connect4Props) {
                   className="c4-eval-green"
                   style={{ height: `${(1 - evalFill) * 100}%` }}
                 />
+                <div className="c4-eval-mid" aria-hidden="true" />
               </div>
             )}
           </div>

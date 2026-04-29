@@ -2168,12 +2168,27 @@ body.green-mode {
   background: color-mix(in oklab, var(--ink) 70%, var(--paper));
 }
 .c4-eval-track {
+  position: relative;
   width: 100%;
   flex: 1 1 auto;
   background: color-mix(in oklab, var(--ink) 14%, var(--paper));
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
+}
+/* Perpendicular tick at the 50% line so the centre is readable at a
+   glance even when the fill sits near it.  Sits ABOVE the coloured
+   halves (z-index 1) and overhangs the bar by a couple of px each side
+   so it's visible against either red or green. */
+.c4-eval-mid {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: 50%;
+  height: 1px;
+  background: color-mix(in oklab, var(--ink) 75%, var(--paper));
+  pointer-events: none;
+  z-index: 1;
 }
 .c4-eval-red {
   background: var(--c4-red);

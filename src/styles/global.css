@@ -1987,8 +1987,9 @@ body.green-mode {
    Visual chrome reuses the site's modal / button / link tokens so the game
    reads as another paper artefact rather than a separate web app. */
 
-/* Tiny LaTeX-style compile-stamp pinned to the document's bottom-right.
-   Hidden whenever a modal covers the page (modals sit at z-index 100+). */
+/* Tiny LaTeX-style compile-stamp pinned to the bottom-right.  Sits
+   ABOVE modal backdrops (z-index 100+) so it stays visible when a
+   modal is open — viewport corner is empty in both modal layouts. */
 .compiled-note {
   position: fixed;
   right: 0.9em;
@@ -1998,7 +1999,7 @@ body.green-mode {
   letter-spacing: 0.12em;
   color: color-mix(in oklab, var(--ink) 38%, var(--paper));
   pointer-events: none;
-  z-index: 5;
+  z-index: 110;
   font-variant-numeric: tabular-nums;
 }
 

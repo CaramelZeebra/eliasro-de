@@ -196,7 +196,7 @@ export default function App({ posts = [], streetview = [], buildTime }: AppProps
 
         {connect4Open && <Connect4 onClose={() => setConnect4Open(false)} />}
 
-        {stage === 'document' && buildTime && (
+        {(stage === 'document' || connect4Open) && buildTime && (
           <div className="compiled-note" aria-hidden="true">
             compiled {buildTime}
           </div>

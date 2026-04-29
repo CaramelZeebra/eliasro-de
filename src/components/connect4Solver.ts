@@ -181,26 +181,84 @@ function moveScore(p: Position, move: bigint): number {
   return popcount(wins);
 }
 
-// Bounded positional heuristic for depth-limit leaves: threat count
-// (with defensive weight) plus a small centre-column bias so opening
-// moves are distinguishable.  Bounded so it can never outrank a real
-// win/loss score (which sits at ±((TOTAL - moves) / 2) ≈ ±21).
+// Bounded positional heuristic for depth-limit leaves.  Implements
+// Allis's "claim even" parity rule (Connect-Four solution, 1988):
+//
+//   In zugzwang, columns fill naturally in order — the 1st, 3rd, 5th
+//   stones in any column go to the first player, and the 2nd, 4th, 6th
+//   to the second.  In 0-indexed rows (bottom-up):
+//     - first player claims threats on EVEN rows  (0, 2, 4)
+//     - second player claims threats on ODD rows  (1, 3, 5)
+//   A threat on your claim-parity will eventually be played by you;
+//   a threat on the wrong parity is mostly decorative because the
+//   opponent can fill below it.
+//
+// The current player to move is the original first player iff the
+// total move count is even.
+//
+// Implementation: precomputed parity masks let us count claim-parity
+// vs wrong-parity threats with two `popcount(... & mask)` calls per
+// side instead of a 42-cell loop.
+//
+// Threats are weighted by claim-parity match.  An additional defensive
+// bias (opp's claim-parity threats hurt more than mine help) keeps the
+// solver cautious.  Fork bonus when ≥ 2 claim threats exist — the
+// opponent only gets one block per turn.  Centre-column control adds
+// a small symmetry-breaker for near-empty positions.
+//
+// Score clamped to ±18 so the heuristic can never outrank a real
+// ±21-area tactical win/loss returned by the negamax recursion.
 const CENTRE_MASK = columnMaskBit(3);
+const ROW_EVEN_MASK = (() => {
+  let m = 0n;
+  for (let c = 0; c < WIDTH; c++) {
+    for (const r of [0, 2, 4]) m |= 1n << BIG(c * H1 + r);
+  }
+  return m;
+})();
+const ROW_ODD_MASK = BOARD_MASK ^ ROW_EVEN_MASK;
+
 function leafEval(p: Position): number {
-  const my = popcount(p.winningPositions());
-  const opp = popcount(p.opponentWinningPositions());
+  const firstToMove = (p.moves & 1) === 0;
+  const myClaimMask = firstToMove ? ROW_EVEN_MASK : ROW_ODD_MASK;
+  const oppClaimMask = BOARD_MASK ^ myClaimMask;
+
+  const myWins = p.winningPositions();
+  const oppWins = p.opponentWinningPositions();
+
+  const myClaim = popcount(myWins & myClaimMask);
+  const myWrong = popcount(myWins) - myClaim;
+  const oppClaim = popcount(oppWins & oppClaimMask);
+  const oppWrong = popcount(oppWins) - oppClaim;
+
+  let score =
+    myClaim * 2 + myWrong * 1 - oppClaim * 3 - oppWrong * 1;
+
+  if (myClaim >= 2) score += 3;
+  if (oppClaim >= 2) score -= 4;
+
   const myCentre = popcount(p.current & CENTRE_MASK);
   const oppCentre = popcount((p.current ^ p.mask) & CENTRE_MASK);
-  return (my - opp * 2) + (myCentre - oppCentre);
+  score += myCentre - oppCentre;
+
+  return Math.max(-18, Math.min(18, score));
 }
 
+// Constant-time popcount via SWAR.  The bitboard fits in 49 bits, so
+// split into two `Number` halves and run a 32-bit SWAR popcount on each.
+// Cheaper than Brian-Kernighan's loop for dense bitfields and roughly
+// equivalent for sparse ones — uniformly fast across the game arc.
 function popcount(b: bigint): number {
-  let n = 0;
-  while (b !== 0n) {
-    b &= b - 1n;
-    n++;
-  }
-  return n;
+  const lo = Number(b & 0xFFFFFFFFn) | 0;
+  const hi = Number(b >> 32n) | 0;
+  return popcount32(lo) + popcount32(hi);
+}
+function popcount32(x: number): number {
+  x = x | 0;
+  x = x - ((x >>> 1) & 0x55555555);
+  x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
+  x = (x + (x >>> 4)) & 0x0F0F0F0F;
+  return Math.imul(x, 0x01010101) >>> 24;
 }
 
 // Transposition-table entry packs:  flag (2 bits) + value (signed int).

@@ -204,37 +204,46 @@ export default function Connect4({ onClose }: Connect4Props) {
       //
       // Stays null when every legal column scored identically — those
       // positions don't reflect any real decision, so they're skipped.
-      const rankWorker = new SolverWorker();
-      rankWorker.onmessage = (
-        e: MessageEvent<{ op: 'rank'; ranked: { col: number; score: number }[] }>,
-      ) => {
-        rankWorker.terminate();
-        if (e.data.op !== 'rank') return;
-        const ranked = e.data.ranked;
-        if (ranked.length <= 1) return;
-        let bestS = -Infinity;
-        let worstS = Infinity;
-        for (const m of ranked) {
-          if (m.score > bestS) bestS = m.score;
-          if (m.score < worstS) worstS = m.score;
-        }
-        if (bestS <= worstS) return;
-        const played = ranked.find((m) => m.col === col);
-        if (!played) return;
-        const q = {
-          quality: (played.score - worstS) / (bestS - worstS),
-          weight: Math.min(1, (bestS - worstS) / 30),
+      //
+      // CPU moves are NOT ranked: the AI plays with a much deeper
+      // search budget than the ranker has, so subjecting its move to
+      // the shallow ranker just produces noise that disagrees with
+      // the bot's own evaluation.  Their q stays null and they drop
+      // out of the shots-on-target average via the null-skip filter.
+      const isCpuMove = aiId !== null && player === aiId;
+      if (!isCpuMove) {
+        const rankWorker = new SolverWorker();
+        rankWorker.onmessage = (
+          e: MessageEvent<{ op: 'rank'; ranked: { col: number; score: number }[] }>,
+        ) => {
+          rankWorker.terminate();
+          if (e.data.op !== 'rank') return;
+          const ranked = e.data.ranked;
+          if (ranked.length <= 1) return;
+          let bestS = -Infinity;
+          let worstS = Infinity;
+          for (const m of ranked) {
+            if (m.score > bestS) bestS = m.score;
+            if (m.score < worstS) worstS = m.score;
+          }
+          if (bestS <= worstS) return;
+          const played = ranked.find((m) => m.col === col);
+          if (!played) return;
+          const q = {
+            quality: (played.score - worstS) / (bestS - worstS),
+            weight: Math.min(1, (bestS - worstS) / 30),
+          };
+          setMoves((prev) =>
+            prev.map((m) => (m.id === moveId ? { ...m, q } : m)),
+          );
         };
-        setMoves((prev) =>
-          prev.map((m) => (m.id === moveId ? { ...m, q } : m)),
-        );
-      };
-      rankWorker.postMessage({
-        op: 'rank',
-        cells: preMoveCells,
-        turn: player,
-        budgetMs: 200,
-      });
+        rankWorker.postMessage({
+          op: 'rank',
+          cells: preMoveCells,
+          turn: player,
+          budgetMs: 200,
+        });
+      }
 
       const animMs = (0.4 + (r + 2) * 0.05) * 1000 + 60;
       window.setTimeout(() => {

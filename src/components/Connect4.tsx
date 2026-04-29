@@ -160,6 +160,12 @@ export default function Connect4({ onClose }: Connect4Props) {
   const isAITurn = aiId !== null && turn === aiId && !winInfo && !draw;
 
   const playerNames: Record<Player, string> = { 1: 'Red', 2: 'Green' };
+  // In CPU mode the bot is named "Elias" — surface that in the win
+  // copy and the eval-bar caption so the bot's wins read as Elias's.
+  const winnerName = (w: Player): string =>
+    mode === 'vsAI' && w === aiId ? 'Elias' : playerNames[w];
+  const winnerEvalCaption = (w: Player): string =>
+    w === 1 ? 'red wins' : mode === 'vsAI' ? 'elias wins' : 'green wins';
 
   const drop = useCallback(
     (col: number) => {
@@ -265,7 +271,7 @@ export default function Connect4({ onClose }: Connect4Props) {
     if (!showEval) return;
     if (winInfo) {
       setEvalFill(winInfo.winner === 1 ? 1 : 0);
-      setEvalText(winInfo.winner === 1 ? 'red wins' : 'green wins');
+      setEvalText(winnerEvalCaption(winInfo.winner));
       return;
     }
     if (draw) {
@@ -291,7 +297,10 @@ export default function Connect4({ onClose }: Connect4Props) {
       evalWorkerRef.current = null;
       const fromRed = turn === 1 ? e.data.score : -e.data.score;
       setEvalFill(scoreToFill(fromRed));
-      setEvalText(decisiveLabel(fromRed, e.data.exhaustive));
+      const label = decisiveLabel(fromRed, e.data.exhaustive);
+      setEvalText(
+        label === 'green wins' && mode === 'vsAI' ? 'elias wins' : label,
+      );
     };
     worker.postMessage({ cells: board, turn, budgetMs: 500 });
     return () => {
@@ -398,11 +407,10 @@ export default function Connect4({ onClose }: Connect4Props) {
 
   const status = (() => {
     if (winInfo) {
-      const name = playerNames[winInfo.winner];
       return (
         <>
           <span className={`c4-who is-${winInfo.winner === 1 ? 'red' : 'green'}`}>
-            {name}
+            {winnerName(winInfo.winner)}
           </span>{' '}
           wins this round.
         </>
@@ -721,7 +729,7 @@ export default function Connect4({ onClose }: Connect4Props) {
               </div>
               {winInfo ? (
                 <h3 className={`c4-win-title is-${winInfo.winner === 1 ? 'red' : 'green'}`}>
-                  {playerNames[winInfo.winner]} wins.
+                  {winnerName(winInfo.winner)} wins.
                 </h3>
               ) : (
                 <h3 className="c4-win-title">A draw.</h3>

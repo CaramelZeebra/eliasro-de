@@ -2166,7 +2166,7 @@ body.green-mode {
 }
 .c4-eval-bar.is-hidden {
   flex-basis: 1px;
-  background: color-mix(in oklab, var(--ink) 70%, var(--paper));
+  background: var(--c4-hair-soft);
 }
 .c4-eval-track {
   position: relative;

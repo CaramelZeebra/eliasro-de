@@ -362,12 +362,27 @@ export function solve(
     }
     localCandidates.sort((a, b) => b.score - a.score);
 
+    // Principal variation search: probe non-leading moves with a null
+    // window (alpha, alpha+1) — succeeds quickly when the move can't
+    // beat the current best, and only re-searches with the full window
+    // on the rare case it does.  Significant speedup when move ordering
+    // is good (winning-positions count → centre-out).
     const origAlpha = alpha;
     let bestVal = -Infinity;
+    let firstMove = true;
     for (const m of localCandidates) {
       const next = p.clone();
       next.playMove(m.bit);
-      const score = -negamax(next, -beta, -alpha, depth - 1);
+      let score: number;
+      if (firstMove) {
+        score = -negamax(next, -beta, -alpha, depth - 1);
+        firstMove = false;
+      } else {
+        score = -negamax(next, -alpha - 1, -alpha, depth - 1);
+        if (score > alpha && score < beta) {
+          score = -negamax(next, -beta, -alpha, depth - 1);
+        }
+      }
       if (score > bestVal) bestVal = score;
       if (score > alpha) alpha = score;
       if (alpha >= beta) {

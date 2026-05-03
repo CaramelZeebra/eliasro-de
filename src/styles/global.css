@@ -2430,3 +2430,357 @@ body.green-mode {
   gap: 1em;
   flex-wrap: wrap;
 }
+
+/* ===========================================================
+   Chess (eliasro.de/chess) — standalone page, paper aesthetic
+   =========================================================== */
+
+body.chess-body {
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-y: auto;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.chess-shell {
+  max-width: 64em;
+  margin: 0 auto;
+  padding: 1.6em 1.4em 3em;
+  font-family: var(--serif);
+}
+
+.chess-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  flex-wrap: wrap;
+  border-bottom: 0.5px solid color-mix(in oklab, var(--ink) 25%, transparent);
+  padding-bottom: 0.6em;
+  margin-bottom: 1em;
+}
+.chess-home {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+  color: color-mix(in oklab, var(--ink) 60%, var(--paper));
+  text-decoration: none;
+}
+.chess-home:hover { color: var(--accent); }
+.chess-title {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 1.9em;
+  letter-spacing: 0.005em;
+}
+.chess-title-by {
+  font-family: var(--serif);
+  font-size: 0.7em;
+  font-weight: 400;
+  color: color-mix(in oklab, var(--ink) 65%, var(--paper));
+}
+
+.chess-status {
+  font-family: var(--display);
+  font-size: 1.05em;
+  margin: 0.2em 0 1.1em;
+  color: color-mix(in oklab, var(--ink) 80%, var(--paper));
+}
+
+.chess-layout {
+  display: flex;
+  gap: 2em;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.chess-stage {
+  flex: 1 1 28em;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+/* Captured-piece tray, above and below the board. */
+.chess-captured {
+  min-height: 1.6em;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.05em;
+  font-size: 1.4em;
+  line-height: 1;
+  color: var(--ink);
+  padding: 0.1em 0.2em;
+}
+.chess-captured[data-empty] { opacity: 0; }
+
+.chess-board-wrap {
+  width: 100%;
+  max-width: 36em;
+  align-self: center;
+}
+.chess-board {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in oklab, var(--ink) 45%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, var(--ink) 12%, transparent),
+    0 12px 28px color-mix(in oklab, var(--ink) 18%, transparent);
+  background: var(--paper);
+  user-select: none;
+}
+.chess-rank {
+  display: flex;
+}
+.chess-square {
+  position: relative;
+  flex: 1 1 0;
+  aspect-ratio: 1 / 1;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+}
+.chess-square.is-light {
+  background: var(--paper);
+}
+.chess-square.is-dark {
+  background: color-mix(in oklab, var(--paper) 70%, var(--ink) 30%);
+}
+.chess-square.is-last {
+  box-shadow: inset 0 0 0 9999px
+    color-mix(in oklab, transparent 78%, var(--accent));
+}
+.chess-square.is-selected {
+  box-shadow: inset 0 0 0 9999px
+    color-mix(in oklab, transparent 70%, var(--accent));
+}
+.chess-square.is-check::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in oklab, var(--accent) 55%, transparent) 0%,
+    transparent 70%);
+  pointer-events: none;
+}
+.chess-square:hover:not(:disabled) {
+  outline: 1px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  outline-offset: -2px;
+}
+
+.chess-coord {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 0.6em;
+  letter-spacing: 0.05em;
+  color: color-mix(in oklab, var(--ink) 55%, var(--paper));
+  pointer-events: none;
+}
+.chess-coord-file { left: 0.25em; bottom: 0.1em; }
+.chess-coord-rank { right: 0.25em; top: 0.1em; }
+
+/* Image-backed piece sprites. Sized as a percentage of the parent square so
+ * the board stays fully responsive. */
+.chess-piece {
+  display: block;
+  width: 69%;
+  height: 69%;
+  object-fit: contain;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+  /* Recolour the dark ink in the sprites toward the site's --ink so the
+   * pieces don't look pure black against the warm paper. */
+  filter: drop-shadow(0 1px 0 color-mix(in oklab, var(--ink) 18%, transparent));
+}
+.chess-piece.is-white {
+  /* The white pieces are outlined glyphs (cream interior was knocked out
+   * when extracted); they read as ink outlines on either square. */
+}
+.chess-piece.is-black {
+  /* Solid silhouettes; no extra treatment needed. */
+}
+.chess-piece.is-small {
+  width: 0.8em;
+  height: 0.8em;
+  flex-shrink: 0;
+}
+
+.chess-target-dot {
+  position: absolute;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--ink) 35%, transparent);
+  pointer-events: none;
+}
+.chess-target-ring {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 75%, transparent);
+  pointer-events: none;
+}
+
+/* ── Side panel ── */
+.chess-side {
+  flex: 0 1 18em;
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  font-size: 0.95em;
+}
+.chess-toggles {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+.chess-toggle-row {
+  display: grid;
+  grid-template-columns: 6.5em 1fr;
+  gap: 0.5em;
+  align-items: baseline;
+}
+.chess-toggle-row dt {
+  font-family: var(--mono);
+  font-size: 0.7em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--ink) 55%, var(--paper));
+}
+.chess-toggle-row dd {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45em;
+  flex-wrap: wrap;
+}
+.chess-sep {
+  color: color-mix(in oklab, var(--ink) 40%, var(--paper));
+  font-style: normal;
+}
+.chess-controls {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  flex-wrap: wrap;
+  border-top: 0.5px solid color-mix(in oklab, var(--ink) 18%, transparent);
+  padding-top: 0.7em;
+}
+.chess-controls .account-link { padding: 0.1em 0; font-size: 0.95em; }
+.chess-controls .account-link:disabled {
+  opacity: 0.4;
+  cursor: default;
+  text-decoration: none;
+}
+
+.chess-movelist {
+  border-top: 0.5px solid color-mix(in oklab, var(--ink) 18%, transparent);
+  padding-top: 0.7em;
+  font-family: var(--mono);
+  font-size: 0.78em;
+  max-height: 18em;
+  overflow-y: auto;
+}
+.chess-movelist ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 2em 1fr 1fr;
+  row-gap: 0.15em;
+  column-gap: 0.6em;
+}
+.chess-movelist li {
+  display: contents;
+}
+.chess-move-num {
+  color: color-mix(in oklab, var(--ink) 50%, var(--paper));
+}
+.chess-move-w, .chess-move-b { color: var(--ink); }
+.chess-movelist-empty {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.95em;
+  color: color-mix(in oklab, var(--ink) 55%, var(--paper));
+}
+
+.chess-keys {
+  font-family: var(--mono);
+  font-size: 0.62em;
+  letter-spacing: 0.08em;
+  color: color-mix(in oklab, var(--ink) 55%, var(--paper));
+  border-top: 0.5px solid color-mix(in oklab, var(--ink) 12%, transparent);
+  padding-top: 0.7em;
+  line-height: 1.7;
+}
+
+/* ── Promotion picker ── */
+.chess-promo-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in oklab, var(--ink) 55%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.chess-promo-card {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid color-mix(in oklab, var(--ink) 35%, transparent);
+  box-shadow: 0 18px 40px color-mix(in oklab, var(--ink) 35%, transparent);
+  padding: 1em 1.2em;
+  min-width: 16em;
+  text-align: center;
+}
+.chess-promo-eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--ink) 55%, var(--paper));
+  margin-bottom: 0.6em;
+}
+.chess-promo-row {
+  display: flex;
+  gap: 0.4em;
+  justify-content: center;
+}
+.chess-promo-btn {
+  background: var(--paper);
+  border: 1px solid color-mix(in oklab, var(--ink) 25%, transparent);
+  cursor: pointer;
+  padding: 0.2em 0.5em;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4em;
+  min-height: 2.4em;
+}
+.chess-promo-btn:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, var(--paper));
+}
+.chess-promo-btn .chess-piece {
+  font-size: 2em;
+}
+
+@media (max-width: 720px) {
+  .chess-layout { flex-direction: column; }
+  .chess-side { flex: 1 1 auto; width: 100%; }
+  .chess-piece { font-size: clamp(1.4em, 9vw, 2.6em); }
+}

@@ -1,0 +1,40 @@
+---
+import Chess from '../components/Chess';
+// Self-hosted via @fontsource. CM Serif is bundled separately in
+// public/fonts/cm/ and registered at the top of global.css.
+import '@fontsource/eb-garamond/400.css';
+import '@fontsource/eb-garamond/400-italic.css';
+import '@fontsource/eb-garamond/500.css';
+import '@fontsource/eb-garamond/700.css';
+import '@fontsource/cormorant-garamond/400.css';
+import '@fontsource/cormorant-garamond/400-italic.css';
+import '@fontsource/cormorant-garamond/500.css';
+import '@fontsource/cormorant-garamond/700.css';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
+import '../styles/global.css';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content="Chess — a small two-player and (soon) vs-Elias board on eliasro.de." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <link rel="icon" href="/favicon.ico?v=2" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Elias Rode" />
+    <meta property="og:title" content="Chess — à la Elias" />
+    <meta property="og:description" content="A small chess board: two-player or (soon) vs Elias." />
+    <meta property="og:url" content="https://eliasro.de/chess" />
+
+    <meta name="theme-color" content="#f3ead2" />
+    <title>Chess — Elias Rode</title>
+  </head>
+  <body class="chess-body">
+    <Chess client:load />
+  </body>
+</html>

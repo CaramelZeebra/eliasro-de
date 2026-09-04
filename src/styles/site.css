@@ -252,7 +252,13 @@ footer.bar .rule { color: color-mix(in oklab, var(--ink) 14%, var(--paper)); }
 .prompt .hint { color: var(--faint); white-space: nowrap; font-size: 0.85rem; }
 @media (max-width: 34em) { .prompt .hint { display: none; } }
 
-.output { margin-bottom: 0.6rem; white-space: pre-wrap; }
+.output {
+  margin-bottom: 0.6rem;
+  white-space: pre-wrap;
+  /* Tighter than the page, closer to a terminal, and it draws the tree's
+     box glyphs nearer together. */
+  line-height: 1.5;
+}
 .output:empty { display: none; }
 /* A blank line in output should occupy a line. */
 .output > div:empty::after { content: "\00a0"; }

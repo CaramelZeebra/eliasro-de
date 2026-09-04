@@ -13,6 +13,7 @@ interface Props {
 const { title, description = site.description } = Astro.props;
 const fullTitle = title ? `${title} — ${site.name}` : site.name;
 const specs = await commandSpecs();
+const buildTime = new Date().toISOString().slice(0, 10);
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 ---
 <!doctype html>
@@ -44,7 +45,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site).href;
       <main>
         <slot />
       </main>
-      <Prompt specs={specs} />
+      <Prompt specs={specs} buildTime={buildTime} />
       <Bar as="footer" left={site.colophon} right={site.year} leftHref="/colophon" />
     </div>
   </body>

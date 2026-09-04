@@ -1,7 +1,7 @@
 ---
 import type { CommandSpec } from '../data/manifest';
-interface Props { specs: CommandSpec[] }
-const { specs } = Astro.props;
+interface Props { specs: CommandSpec[]; buildTime: string }
+const { specs, buildTime } = Astro.props;
 ---
 <!-- Hidden until the script runs: without JavaScript the index links are the
      navigation, and a dead input would be worse than no input. -->
@@ -26,7 +26,7 @@ const { specs } = Astro.props;
   </div>
 </div>
 
-<script is:inline define:vars={{ specs }}>
+<script is:inline define:vars={{ specs, buildTime }}>
 (() => {
   const root = document.getElementById('prompt');
   const input = document.getElementById('prompt-input');
@@ -59,6 +59,26 @@ const { specs } = Astro.props;
   };
 
   const pad = (s, n) => s + ' '.repeat(Math.max(1, n - s.length));
+  const padStart = (s, n) => ' '.repeat(Math.max(0, n - s.length)) + s;
+
+  /** Bytes the way ls -h prints them. */
+  const human = (n) => (n < 1024 ? String(n) : (n / 1024).toFixed(1) + 'K');
+
+  /** Hard-wrap to a column, so printed prose keeps the terminal's shape. */
+  const wrap = (text, width) => {
+    const lines = [];
+    let line = '';
+    for (const word of text.split(' ')) {
+      if (line && (line + ' ' + word).length > width) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = line ? line + ' ' + word : word;
+      }
+    }
+    if (line) lines.push(line);
+    return lines;
+  };
 
   const distance = (a, b) => {
     const m = Array.from({ length: b.length + 1 }, (_, i) => [i, ...Array(a.length).fill(0)]);
@@ -119,11 +139,69 @@ const { specs } = Astro.props;
     });
   };
 
+  // ── listings ──────────────────────────────────────────────────────────
+
+  const lsShort = () => {
+    for (const s of visible) write(s.command + (s.external ? ' -> ' + s.href : ''));
+  };
+
+  // Real sizes and dates, measured at build time. The external row genuinely
+  // is a link, so it is listed as one.
+  const lsLong = () => {
+    for (const s of visible) {
+      const mode = s.external ? 'lrwxr-xr-x' : '-rw-r--r--';
+      const name = s.command + (s.external ? ' -> ' + s.href : '');
+      write(
+        `${mode}  1 elias  elias  ${padStart(human(s.size), 5)}  ${s.date}  ${name}`,
+      );
+    }
+  };
+
+  const tree = () => {
+    write('.');
+    visible.forEach((s, i) => {
+      const last = i === visible.length - 1;
+      write((last ? '└── ' : '├── ') + s.command + (s.external ? ' -> ' + s.href : ''));
+    });
+    write('');
+    write(visible.length + ' pages', 'dim');
+  };
+
+  const cat = (name) => {
+    if (!name) {
+      write('cat: missing operand', 'err');
+      write('try: cat ' + visible[0].command, 'dim');
+      return;
+    }
+    const s = byName.get(name.toLowerCase());
+    if (!s) {
+      write('cat: ' + name + ': no such file or directory', 'err');
+      return;
+    }
+    if (s.external) {
+      write('cat: ' + s.command + ': is a symbolic link', 'err');
+      write(s.command + ' -> ' + s.href, 'dim');
+      return;
+    }
+    if (!s.excerpt) {
+      write('cat: ' + s.command + ': not a text file', 'err');
+      return;
+    }
+    for (const line of wrap(s.excerpt, 64)) write(line);
+    write('');
+    write(`${human(s.size)} in all. type ${s.command} for the rest.`, 'dim');
+  };
+
   const HELP = [
     ['ls', 'list what is here'],
+    ['tree', 'the same, with branches'],
+    ['cat <name>', 'read it here'],
     ['<name>', 'go there'],
     ['clear', 'clear this'],
   ];
+
+  const history = [];
+  let hIndex = -1;
 
   const run = (raw) => {
     const line = raw.trim();
@@ -148,7 +226,15 @@ const { specs } = Astro.props;
     }
 
     if (name === 'ls') {
-      for (const s of visible) write(s.command + (s.external ? ' -> ' + s.href : ''));
+      if (rest.some((r) => /^-\w*l/.test(r))) lsLong();
+      else lsShort();
+      return;
+    }
+    if (name === 'tree') { tree(); return; }
+    if (name === 'cat') { cat(rest[0]); return; }
+
+    if (name === 'history') {
+      history.forEach((h, i) => write(padStart(String(i + 1), 3) + '  ' + h));
       return;
     }
 
@@ -167,6 +253,16 @@ const { specs } = Astro.props;
       return run(arg);
     }
     if (name === 'man') { write('man: it is a website. click something.', 'dim'); return; }
+    if (name === 'vim' || name === 'vi' || name === 'nvim') {
+      write('vim: no. close the tab, like everyone else.', 'dim');
+      return;
+    }
+    if (name === 'make') { write('make: *** no rule to make target. stop.', 'err'); return; }
+    if (name === 'uptime') {
+      const days = Math.max(0, Math.floor((Date.now() - Date.parse(buildTime)) / 86400000));
+      write(`up ${days} day${days === 1 ? '' : 's'}, 1 user, load average: 0.00, 0.00, 0.00`);
+      return;
+    }
     if (name === 'exit' || name === 'quit') { write('there is no exit. there is a back button.', 'dim'); return; }
     if (name === 'echo') { write(arg); return; }
     if (name === 'date') { write(new Date().toDateString().toLowerCase()); return; }
@@ -197,9 +293,6 @@ const { specs } = Astro.props;
   input.addEventListener('focus', () => root.classList.remove('is-blurred'));
   input.addEventListener('blur', () => root.classList.add('is-blurred'));
   root.classList.add('is-blurred');
-
-  const history = [];
-  let hIndex = -1;
 
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {

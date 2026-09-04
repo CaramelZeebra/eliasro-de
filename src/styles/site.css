@@ -260,6 +260,33 @@ footer.bar .rule { color: color-mix(in oklab, var(--ink) 14%, var(--paper)); }
 .output .err { color: var(--accent); }
 .output .dim { color: var(--muted); }
 
+/* ── sl ───────────────────────────────────────────────────────────────── */
+
+.sl {
+  position: fixed;
+  /* Runs through the band the page usually leaves empty, above the prompt. */
+  top: 58%;
+  left: 0;
+  margin: 0;
+  z-index: 50;
+  white-space: pre;
+  font-family: var(--tw);
+  font-size: 1rem;
+  /* Near 1 so the box glyphs meet vertically, as in the colophon specimen. */
+  line-height: 1.05;
+  color: var(--muted);
+  /* A paper halo so the train passes over prose without tangling with it. */
+  text-shadow:
+    0 0 4px var(--paper), 0 0 4px var(--paper),
+    0 0 8px var(--paper), 0 0 8px var(--paper);
+  pointer-events: none;
+  animation: sl-run 5s linear forwards;
+}
+@keyframes sl-run {
+  from { transform: translateX(100vw); }
+  to   { transform: translateX(-52ch); }
+}
+
 /* ── misc ─────────────────────────────────────────────────────────────── */
 
 ::selection { background: color-mix(in oklab, var(--accent) 22%, var(--paper)); }

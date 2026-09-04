@@ -69,6 +69,56 @@ const { specs } = Astro.props;
     return m[b.length][a.length];
   };
 
+  // ── sl ────────────────────────────────────────────────────────────────
+  // Typing `sl` is, as ever, punished with a train. Drawn in the same
+  // box-drawing glyphs as the rest of the site, so it runs along the grid.
+  const TRAIN = [
+    '     ┌──╨─╨──┐   ┌────────────┐   ┌────────────┐',
+    '     │ ┌───┐ │   │ ┌──┐ ┌──┐  │   │ ┌──┐ ┌──┐  │',
+    '     │ └───┘ │   │ └──┘ └──┘  │   │ └──┘ └──┘  │',
+    '     └─○───○─┘   └──○──────○──┘   └──○──────○──┘',
+  ];
+  const CHIMNEY = '        ╔═╗                                     ';
+  const SMOKE = [
+    [
+      '          o                                     ',
+      '        o                                       ',
+      '         o                                      ',
+    ],
+    [
+      '        o                                       ',
+      '         o                                      ',
+      '          o                                     ',
+    ],
+  ];
+  const frame = (i) => [...SMOKE[i], CHIMNEY, ...TRAIN].join('\n');
+
+  let running = false;
+  const sl = () => {
+    if (running) return;
+    // Someone who asked not to be moved gets the train standing still.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      write(frame(0));
+      return;
+    }
+    running = true;
+    const el = document.createElement('pre');
+    el.className = 'sl';
+    el.setAttribute('aria-hidden', 'true');
+    el.textContent = frame(0);
+    document.body.appendChild(el);
+    let i = 0;
+    const puff = window.setInterval(() => {
+      i = 1 - i;
+      el.textContent = frame(i);
+    }, 240);
+    el.addEventListener('animationend', () => {
+      window.clearInterval(puff);
+      el.remove();
+      running = false;
+    });
+  };
+
   const HELP = [
     ['ls', 'list what is here'],
     ['<name>', 'go there'],
@@ -84,6 +134,7 @@ const { specs } = Astro.props;
     const name = cmd.toLowerCase();
 
     if (name === 'clear') { out.replaceChildren(); return; }
+    if (name === 'sl') { sl(); return; }
 
     if (name === 'help' || name === '?') {
       write('pages', 'dim');

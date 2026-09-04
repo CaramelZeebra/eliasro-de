@@ -118,6 +118,12 @@ body {
 .bar .end { color: var(--muted); }
 
 footer.bar { color: var(--muted); font-size: 0.82rem; }
+.bar-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.bar-link:hover { color: var(--accent); }
 footer.bar .rule { color: color-mix(in oklab, var(--ink) 14%, var(--paper)); }
 
 /* ── index ────────────────────────────────────────────────────────────── */
@@ -186,7 +192,17 @@ footer.bar .rule { color: color-mix(in oklab, var(--ink) 14%, var(--paper)); }
   width: 3ch;
   color: var(--faint);
 }
-.prose code { font-family: var(--tw); font-size: 0.86em; }
+.prose code { font-family: var(--tw); font-size: 0.95em; }
+/* Box-drawing needs a line-height near 1 so the glyphs meet vertically. */
+.prose pre {
+  font-family: var(--tw);
+  font-size: 1rem;
+  line-height: 1.08;
+  color: var(--muted);
+  margin: 0 0 1.3rem;
+  overflow-x: auto;
+}
+.prose pre code { font-size: inherit; }
 .prose hr { border: 0; height: 1px; background: var(--faint); margin: 1.8rem 0; }
 
 /* Page heading, set in the typewriter cut so it belongs to the frame. */

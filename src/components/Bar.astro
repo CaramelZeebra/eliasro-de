@@ -1,11 +1,20 @@
 ---
 // `left ──────── right`, the site's only structural furniture.
-interface Props { left: string; right: string; as?: 'header' | 'footer'; leftClass?: string }
-const { left, right, as = 'header', leftClass = '' } = Astro.props;
+interface Props {
+  left: string;
+  right: string;
+  as?: 'header' | 'footer';
+  leftClass?: string;
+  /** Makes the left-hand label a link. */
+  leftHref?: string;
+}
+const { left, right, as = 'header', leftClass = '', leftHref } = Astro.props;
 const Tag = as;
 ---
 <Tag class="bar">
-  <span class={leftClass}>{left}</span>
+  {leftHref
+    ? <a class={`bar-link ${leftClass}`} href={leftHref}>{left}</a>
+    : <span class={leftClass}>{left}</span>}
   <span class="rule" aria-hidden="true">{"─".repeat(200)}</span>
   <span class="end">{right}</span>
 </Tag>

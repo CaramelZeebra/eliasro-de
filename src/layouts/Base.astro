@@ -45,7 +45,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site).href;
         <slot />
       </main>
       <Prompt specs={specs} />
-      <Bar as="footer" left={site.colophon} right={site.year} />
+      <Bar as="footer" left={site.colophon} right={site.year} leftHref="/colophon" />
     </div>
   </body>
 </html>

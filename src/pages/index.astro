@@ -1,14 +1,12 @@
 ---
 import Base from '../layouts/Base.astro';
 import { visibleEntries } from '../data/manifest';
+import { site } from '../data/site';
 
 const entries = await visibleEntries();
 ---
 <Base>
-  <p class="prose epigraph">
-    An index, and not much else. Everything here is either something built or
-    something found; the rest came down on purpose.
-  </p>
+  <p class="prose epigraph">{site.epigraph}</p>
 
   <nav aria-label="Index">
     <ul class="index">

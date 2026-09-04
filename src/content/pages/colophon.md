@@ -19,10 +19,11 @@ prose, including this sentence.
 Every horizontal line here is the character `─`, typed. Not one of them is a
 border, a background, or a one-pixel div.
 
-
-Most monospaced faces omit box-drawing glyphs altogether, and several that do
-include them get the widths wrong. This one does not, which is the only
-reason the site looks the way it does.
+This works because the typewriter cut gives its box-drawing glyphs the same
+advance width as its letters, so a rule occupies whole character cells and
+lands on the grid alongside the text. Most monospaced faces omit box-drawing
+glyphs altogether, and several that do include them get the widths wrong.
+This one does not, which is the only reason the site looks the way it does.
 
 ## weight
 
@@ -33,9 +34,9 @@ but one ships a line of framework JavaScript.
 
 ## the prompt
 
-The line at the foot of the page is convenient however everything it can reach is an ordinary link as well, the page is finished
-before it runs, and it removes itself entirely where JavaScript is
-unavailable.
+The line at the foot of the page is convenient, but everything it can reach
+is an ordinary link as well, the page is finished before it runs, and it
+removes itself entirely where JavaScript is unavailable.
 
 ## what is not here
 

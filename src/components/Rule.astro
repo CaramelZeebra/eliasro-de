@@ -1,0 +1,7 @@
+---
+// A horizontal rule made of U+2500. Long enough to overflow any column at
+// our measure; .rule clips it. Not a CSS border — it sits on the character
+// grid like everything else.
+const { count = 200 } = Astro.props;
+---
+<span class="rule" aria-hidden="true">{"─".repeat(count)}</span>

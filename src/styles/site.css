@@ -1,0 +1,258 @@
+/* ==========================================================================
+   eliasro.de
+
+   Two cuts of one typeface. CMU Typewriter sets the frame — index, rules,
+   labels, prompt. CMU Serif sets prose. Every horizontal rule on this site
+   is the box-drawing glyph U+2500, not a CSS border: the typewriter cut is
+   a true monospace (advance 525/1000, identical for letters and box glyphs),
+   so the rules land on the same character grid as the text beside them.
+   ========================================================================== */
+
+@font-face {
+  font-family: "CMU Typewriter";
+  src: url("/fonts/cmu-typewriter-roman.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "CMU Typewriter";
+  src: url("/fonts/cmu-typewriter-italic.woff2") format("woff2");
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: "CMU Typewriter";
+  src: url("/fonts/cmu-typewriter-bold.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "CMU Serif";
+  src: url("/fonts/cmu-serif-roman.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "CMU Serif";
+  src: url("/fonts/cmu-serif-italic.woff2") format("woff2");
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: "CMU Serif";
+  src: url("/fonts/cmu-serif-bold.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+
+:root {
+  --paper: #f4f0e6;
+  --ink: #211d18;
+  --muted: color-mix(in oklab, var(--ink) 48%, var(--paper));
+  --faint: color-mix(in oklab, var(--ink) 22%, var(--paper));
+  --accent: #8a3218;
+
+  --tw: "CMU Typewriter", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --serif: "CMU Serif", Georgia, "Times New Roman", serif;
+
+  --measure: 74ch;
+  --gutter: 3ch;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #17150f;
+    --ink: #e7e0d1;
+    --accent: #cf7f52;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html {
+  /* px, not rem-relative: `ch` must stay a stable, predictable unit. */
+  font-size: 17px;
+  background: var(--paper);
+}
+@media (max-width: 34em) { html { font-size: 15px; } }
+
+body {
+  margin: 0;
+  font-family: var(--tw);
+  font-size: 1rem;
+  line-height: 1.75;
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── shell ────────────────────────────────────────────────────────────── */
+
+.shell {
+  max-width: calc(var(--measure) + var(--gutter) * 2);
+  margin: 0 auto;
+  padding: 3.5rem var(--gutter) 2.5rem;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+}
+.shell > main { flex: 1; }
+
+/* ── glyph rules ──────────────────────────────────────────────────────── */
+/* .rule holds a long run of U+2500 and is clipped to the space it is given,
+   so a rule is literally typeset rather than drawn. */
+
+.rule {
+  flex: 1;
+  min-width: 2ch;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--faint);
+  user-select: none;
+}
+
+.bar {
+  display: flex;
+  align-items: baseline;
+  gap: 1ch;
+}
+.bar .name { font-weight: 700; }
+.bar .end { color: var(--muted); }
+
+footer.bar { color: var(--muted); font-size: 0.82rem; }
+footer.bar .rule { color: color-mix(in oklab, var(--ink) 14%, var(--paper)); }
+
+/* ── index ────────────────────────────────────────────────────────────── */
+
+.index { list-style: none; margin: 0; padding: 0; }
+
+.index a {
+  display: grid;
+  grid-template-columns: 2ch 13ch 1fr auto;
+  align-items: baseline;
+  column-gap: 1ch;
+  padding: 0.15rem 0;
+  color: inherit;
+  text-decoration: none;
+}
+/* The caret is always in the grid — it only becomes visible on hover, so
+   nothing shifts. */
+.index a::before {
+  content: ">";
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 90ms ease-out;
+}
+.index a:hover::before,
+.index a:focus-visible::before { opacity: 1; }
+.index a:hover .cmd,
+.index a:focus-visible .cmd { color: var(--accent); }
+.index a:focus-visible { outline: none; }
+
+.index .cmd { transition: color 90ms ease-out; }
+.index .blurb { color: var(--muted); }
+.index .note { color: var(--faint); white-space: nowrap; }
+
+@media (max-width: 34em) {
+  .index a { grid-template-columns: 2ch 1fr auto; }
+  .index .blurb { display: none; }
+}
+
+/* ── prose (the serif half) ───────────────────────────────────────────── */
+
+.prose {
+  font-family: var(--serif);
+  font-size: 1.18rem;
+  line-height: 1.58;
+  max-width: 64ch;
+}
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child { margin-bottom: 0; }
+.prose p { margin: 0 0 1.1rem; }
+.prose a { color: inherit; text-decoration-color: var(--faint); text-underline-offset: 0.16em; }
+.prose a:hover { color: var(--accent); text-decoration-color: currentColor; }
+.prose em { font-style: italic; }
+.prose h2 {
+  font-family: var(--tw);
+  font-size: 0.95rem;
+  font-weight: 400;
+  text-transform: lowercase;
+  color: var(--muted);
+  margin: 2rem 0 0.6rem;
+}
+.prose ul { list-style: none; margin: 0 0 1.1rem; padding: 0; }
+.prose ul li { padding-left: 3ch; text-indent: -3ch; margin-bottom: 0.35rem; }
+.prose ul li::before {
+  content: "·";
+  display: inline-block;
+  width: 3ch;
+  color: var(--faint);
+}
+.prose code { font-family: var(--tw); font-size: 0.86em; }
+.prose hr { border: 0; height: 1px; background: var(--faint); margin: 1.8rem 0; }
+
+/* Page heading, set in the typewriter cut so it belongs to the frame. */
+.page-head { display: flex; align-items: baseline; gap: 1ch; margin-bottom: 1.6rem; }
+.page-head .title { color: var(--ink); }
+.page-head .back { color: var(--muted); text-decoration: none; white-space: nowrap; }
+.page-head .back:hover { color: var(--accent); }
+
+/* ── prompt ───────────────────────────────────────────────────────────── */
+
+.prompt { margin-top: auto; }
+.prompt-line { display: flex; align-items: baseline; gap: 1ch; }
+.prompt .sigil { color: var(--accent); user-select: none; }
+
+.prompt .field { position: relative; flex: 1; display: flex; }
+.prompt input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  caret-color: transparent;
+}
+.prompt input:focus { outline: none; }
+.prompt input::placeholder { color: var(--faint); opacity: 1; }
+
+/* Monospace means the caret's column is just the character offset. */
+.prompt .caret {
+  position: absolute;
+  left: calc(var(--col, 0) * 1ch);
+  top: 0.16em;
+  width: 1ch;
+  height: 1.05em;
+  background: var(--accent);
+  opacity: 0.85;
+  pointer-events: none;
+  animation: blink 1.15s step-end infinite;
+}
+.prompt.is-blurred .caret { opacity: 0.28; animation: none; }
+@keyframes blink { 0%, 100% { opacity: 0.85; } 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .prompt .caret { animation: none; }
+}
+
+.prompt .hint { color: var(--faint); white-space: nowrap; font-size: 0.85rem; }
+@media (max-width: 34em) { .prompt .hint { display: none; } }
+
+.output { margin-bottom: 0.6rem; white-space: pre-wrap; }
+.output:empty { display: none; }
+/* A blank line in output should occupy a line. */
+.output > div:empty::after { content: "\00a0"; }
+.output .echo { color: var(--muted); }
+.output .err { color: var(--accent); }
+.output .dim { color: var(--muted); }
+
+/* ── misc ─────────────────────────────────────────────────────────────── */
+
+::selection { background: color-mix(in oklab, var(--accent) 22%, var(--paper)); }
+
+a:focus-visible,
+input:focus-visible { outline: 1px dashed var(--accent); outline-offset: 3px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

@@ -1,0 +1,38 @@
+---
+import Base from '../layouts/Base.astro';
+import { visibleEntries } from '../data/manifest';
+
+const entries = await visibleEntries();
+---
+<Base>
+  <p class="prose epigraph">
+    An index, and not much else. Everything here is either something built or
+    something found; the rest came down on purpose.
+  </p>
+
+  <nav aria-label="Index">
+    <ul class="index">
+      {entries.map((e) => (
+        <li>
+          <a
+            href={e.data.external ?? `/${e.data.command}`}
+            {...(e.data.external ? { target: '_blank', rel: 'noopener' } : {})}
+          >
+            <span class="cmd">{e.data.command}</span>
+            <span class="blurb">{e.data.blurb}</span>
+            <span class="note">{e.data.note ?? ''}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</Base>
+
+<style>
+  .epigraph {
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 2rem;
+    max-width: 56ch;
+  }
+</style>

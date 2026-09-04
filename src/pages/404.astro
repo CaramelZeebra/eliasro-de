@@ -1,0 +1,36 @@
+---
+import Base from '../layouts/Base.astro';
+import Rule from '../components/Rule.astro';
+import { visibleEntries } from '../data/manifest';
+
+const entries = await visibleEntries();
+---
+<Base title="404" description="No such file or directory.">
+  <div class="page-head">
+    <span class="title">404</span>
+    <Rule />
+    <a class="back" href="/">&larr; index</a>
+  </div>
+
+  <p class="prose">
+    No such file or directory. There is not much here to begin with, so this is
+    a fairly easy mistake to make.
+  </p>
+
+  <nav aria-label="Index">
+    <ul class="index">
+      {entries.map((e) => (
+        <li>
+          <a
+            href={e.data.external ?? `/${e.data.command}`}
+            {...(e.data.external ? { target: '_blank', rel: 'noopener' } : {})}
+          >
+            <span class="cmd">{e.data.command}</span>
+            <span class="blurb">{e.data.blurb}</span>
+            <span class="note">{e.data.note ?? ''}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</Base>

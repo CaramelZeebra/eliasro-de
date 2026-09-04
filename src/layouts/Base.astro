@@ -1,0 +1,51 @@
+---
+import { site } from '../data/site';
+import { commandSpecs } from '../data/manifest';
+import Bar from '../components/Bar.astro';
+import Prompt from '../components/Prompt.astro';
+import '../styles/site.css';
+
+interface Props {
+  /** Appended to the site name in <title>. Omit on the index. */
+  title?: string;
+  description?: string;
+}
+const { title, description = site.description } = Astro.props;
+const fullTitle = title ? `${title} — ${site.name}` : site.name;
+const specs = await commandSpecs();
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+
+    <meta name="theme-color" content="#f4f0e6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#17150f" media="(prefers-color-scheme: dark)" />
+
+    <!-- The typewriter cut carries the frame; it is wanted immediately. -->
+    <link rel="preload" href="/fonts/cmu-typewriter-roman.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <div class="shell">
+      <Bar left={site.name} right={site.place} leftClass="name" />
+      <main>
+        <slot />
+      </main>
+      <Prompt specs={specs} />
+      <Bar as="footer" left={site.colophon} right={site.year} />
+    </div>
+  </body>
+</html>

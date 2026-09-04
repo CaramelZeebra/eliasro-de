@@ -1,0 +1,11 @@
+---
+// `left ──────── right`, the site's only structural furniture.
+interface Props { left: string; right: string; as?: 'header' | 'footer'; leftClass?: string }
+const { left, right, as = 'header', leftClass = '' } = Astro.props;
+const Tag = as;
+---
+<Tag class="bar">
+  <span class={leftClass}>{left}</span>
+  <span class="rule" aria-hidden="true">{"─".repeat(200)}</span>
+  <span class="end">{right}</span>
+</Tag>

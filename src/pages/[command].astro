@@ -1,0 +1,29 @@
+---
+import { render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import Rule from '../components/Rule.astro';
+import { routedEntries } from '../data/manifest';
+
+export async function getStaticPaths() {
+  const entries = await routedEntries();
+  return entries.map((entry) => ({
+    params: { command: entry.data.command },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const heading = entry.data.title ?? entry.data.command;
+---
+<Base title={heading} description={`${heading} — ${entry.data.blurb}.`}>
+  <div class="page-head">
+    <span class="title">{heading}</span>
+    <Rule />
+    <a class="back" href="/">&larr; index</a>
+  </div>
+
+  <article class="prose">
+    <Content />
+  </article>
+</Base>

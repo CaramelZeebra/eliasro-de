@@ -1,0 +1,24 @@
+---
+// A preserved artifact of the previous site, kept at its own route and
+// deliberately quarantined: its own stylesheet, its own palette, its own
+// fonts, and the only React on the site. It is not in the index, not in
+// `ls`, and not in tab-completion — you get here by knowing about it.
+import Connect4Page from '../legacy/connect4/Connect4Page';
+import '../legacy/connect4/connect4.css';
+
+const buildTime = new Date().toISOString().slice(0, 10);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Connect 4 — à la Elias</title>
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#0a0805" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <Connect4Page client:load buildTime={buildTime} />
+  </body>
+</html>
